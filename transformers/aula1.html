@@ -239,10 +239,9 @@
       <div class="hero-row">
         <div class="hero-text">
           <div class="kicker">Grupo de Estudos · Deep Learning Teórico</div>
-          <h1>Aula 1<br><span class="accent">Transformers</span>: do zero ao exemplo completo</h1>
-          <p>Um percurso integral pelos fundamentos — de tarefas de NLP e tokenização até a arquitetura completa do transformer, terminando num exemplo de tradução ponta a ponta.</p>
+          <h1>Aula 1<br><span class="accent">Transformers</span>: Introdução</h1>
+          <p>Um percurso integral pelos fundamentos — de tarefas de NLP e tokenização até a arquitetura completa do transformer</p>
           <div class="hero-meta">
-            <span>27 BLOCOS</span>
             <span>DO ZERO À ARQUITETURA COMPLETA</span>
             <span>VASWANI ET AL., 2017</span>
           </div>
@@ -255,8 +254,8 @@
   <!-- 1: AGENDA -->
   <section class="slide">
     <div class="eyebrow">Roteiro</div>
-    <h1 class="slide-title">O caminho completo, do zero</h1>
-    <p class="slide-sub">Seguimos a ordem integral do material: contexto de NLP → representações → RNNs → nascimento da atenção → arquitetura do transformer → exemplo end-to-end.</p>
+    <h1 class="slide-title">O caminho completo</h1>
+    <p class="slide-sub">Contexto de NLP → representações → RNNs → nascimento da atenção → arquitetura do transformer → exemplo end-to-end.</p>
     <div class="content">
       <div class="agenda-cols">
         <div class="agenda-list">
@@ -271,8 +270,7 @@
           <div class="agenda-item"><span class="idx">07</span><span class="label">Transformer architecture</span><span class="note">encoder & decoder</span></div>
           <div class="agenda-item"><span class="idx">08</span><span class="label">Input & positional encoding</span><span class="note">V, d_model</span></div>
           <div class="agenda-item"><span class="idx">09</span><span class="label">Encoder & Decoder</span><span class="note">N, h, d_FF, d_key, d_value</span></div>
-          <div class="agenda-item"><span class="idx">10</span><span class="label">Truques computacionais</span><span class="note">multi-head, label smoothing</span></div>
-          <div class="agenda-item"><span class="idx">11</span><span class="label">Exemplo end-to-end</span><span class="note">"A cute teddy bear is reading."</span></div>
+          <div class="agenda-item"><span class="idx">10</span><span class="label">Exemplo end-to-end</span><span class="note">"A cute teddy bear is reading."</span></div>
         </div>
       </div>
     </div>
@@ -282,7 +280,6 @@
   <section class="slide">
     <div class="eyebrow">01 · NLP overview</div>
     <h1 class="slide-title">Três famílias de problemas</h1>
-    <p class="slide-sub">Mapear o que estamos tentando resolver antes de discutir arquitetura — cada família volta a aparecer quando falarmos de BERT e GPT.</p>
     <div class="content">
       <div class="task-grid">
         <div class="card task-card">
@@ -596,32 +593,9 @@
     </div>
   </section>
 
-  <!-- 20: MULTI-HEAD ATTENTION -->
-  <section class="slide">
-    <div class="eyebrow">10 · Truques computacionais</div>
-    <h1 class="slide-title">Multi-head attention</h1>
-    <p class="slide-sub">Ideia: rodar múltiplas camadas de self-attention em paralelo, cada uma podendo capturar um padrão de relação diferente entre os tokens.</p>
-    <div class="content">
-      <div class="two-col">
-        <div class="card"><div class="tag">Benefício</div><p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:8px 0 0 0;">Permite ao modelo capturar diferentes características de atenção em paralelo — cada head pode aprender um tipo distinto de relação (sintática, correferência, proximidade...).</p></div>
-        <div class="card"><div class="tag">Analogia</div><p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:8px 0 0 0;">Comparável a múltiplos filtros de uma camada convolucional em visão computacional — cada filtro/head extrai um tipo diferente de feature.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 21: LABEL SMOOTHING -->
-  <section class="slide">
-    <div class="eyebrow">10 · Truques computacionais</div>
-    <h1 class="slide-title">Label smoothing</h1>
-    <p class="slide-sub">Ideia vinda de um paper de visão de 2015: excesso de confiança do modelo é ruim para a generalização. Solução: introduzir ruído nos rótulos verdadeiros durante o treino.</p>
-    <div class="content">
-      <div class="card" style="max-width:640px;"><div class="tag">Benefício</div><p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:8px 0 0 0;">Técnica geral que previne overfitting; melhora accuracy e BLEU score no treinamento do transformer original.</p></div>
-    </div>
-  </section>
-
   <!-- 22: END-TO-END SETUP -->
   <section class="slide">
-    <div class="eyebrow">11 · Exemplo end-to-end · Passo 1</div>
+    <div class="eyebrow">10 · Exemplo end-to-end · Passo 1</div>
     <h1 class="slide-title">Tokenizar e preparar a entrada</h1>
     <p class="slide-sub">Vamos traduzir "A cute teddy bear is reading." do inglês para o francês, acompanhando cada etapa da arquitetura.</p>
     <div class="content">
@@ -644,7 +618,7 @@
 
   <!-- 23: END-TO-END ENCODER PASS -->
   <section class="slide">
-    <div class="eyebrow">11 · Exemplo end-to-end · Passo 2</div>
+    <div class="eyebrow">10 · Exemplo end-to-end · Passo 2</div>
     <h1 class="slide-title">Passagem pelo encoder</h1>
     <p class="slide-sub">A matriz position-aware entra no encoder. Cada head calcula Q, K, V; as heads são concatenadas e projetadas de volta por W_o.</p>
     <div class="content">
@@ -671,7 +645,7 @@
 
   <!-- 24: END-TO-END DECODER FIRST TOKEN -->
   <section class="slide">
-    <div class="eyebrow">11 · Exemplo end-to-end · Passo 3</div>
+    <div class="eyebrow">10 · Exemplo end-to-end · Passo 3</div>
     <h1 class="slide-title">Decoder gera o primeiro token</h1>
     <p class="slide-sub">O decoder começa só com [BOS]. Self-attention mascarada, depois cross-attention usando as keys/values do encoder.</p>
     <div class="content">
@@ -697,7 +671,7 @@
 
   <!-- 25: END-TO-END AUTOREGRESSIVE LOOP -->
   <section class="slide">
-    <div class="eyebrow">11 · Exemplo end-to-end · Passo 4</div>
+    <div class="eyebrow">10 · Exemplo end-to-end · Passo 4</div>
     <h1 class="slide-title">Geração autoregressiva até [EOS]</h1>
     <p class="slide-sub">O token gerado volta como entrada do decoder, junto com [BOS] — repete-se o processo até [EOS] aparecer.</p>
     <div class="content">
