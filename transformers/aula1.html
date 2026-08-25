@@ -208,12 +208,6 @@
   .arch-box.dim2 { opacity: 0.45; }
   .arch-note { text-align: center; font-size: 10px; color: var(--ink-faint); font-family: var(--font-mono); margin-top: 2px; }
 
-  /* ===== FLOW STEPS (end-to-end) ===== */
-  .flow-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-  .flow-box { font-family: var(--font-mono); font-size: 12px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; text-align: center; }
-  .flow-box.hl { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
-  .flow-arrow { color: var(--ink-faint); font-size: 16px; }
-
   .param-row { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; }
   .param-chip { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-dim); }
   .param-chip b { color: var(--peri); }
@@ -255,7 +249,7 @@
   <section class="slide">
     <div class="eyebrow">Roteiro</div>
     <h1 class="slide-title">O caminho completo</h1>
-    <p class="slide-sub">Contexto de NLP → representações → RNNs → nascimento da atenção → arquitetura do transformer → exemplo end-to-end.</p>
+    <p class="slide-sub">Contexto de NLP → representações → RNNs → nascimento da atenção → arquitetura completa do transformer.</p>
     <div class="content">
       <div class="agenda-cols">
         <div class="agenda-list">
@@ -270,7 +264,6 @@
           <div class="agenda-item"><span class="idx">07</span><span class="label">Transformer architecture</span><span class="note">encoder & decoder</span></div>
           <div class="agenda-item"><span class="idx">08</span><span class="label">Input & positional encoding</span><span class="note">V, d_model</span></div>
           <div class="agenda-item"><span class="idx">09</span><span class="label">Encoder & Decoder</span><span class="note">N, h, d_FF, d_key, d_value</span></div>
-          <div class="agenda-item"><span class="idx">10</span><span class="label">Exemplo end-to-end</span><span class="note">"A cute teddy bear is reading."</span></div>
         </div>
       </div>
     </div>
@@ -589,126 +582,6 @@
       <div class="param-row">
         <span class="param-chip"><b>V</b> — tamanho do vocabulário</span>
         <span class="param-chip"><b>d_model</b> — dimensão do embedding</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- 22: END-TO-END SETUP -->
-  <section class="slide">
-    <div class="eyebrow">10 · Exemplo end-to-end · Passo 1</div>
-    <h1 class="slide-title">Tokenizar e preparar a entrada</h1>
-    <p class="slide-sub">Vamos traduzir "A cute teddy bear is reading." do inglês para o francês, acompanhando cada etapa da arquitetura.</p>
-    <div class="content">
-      <div class="flow-row">
-        <div class="flow-box">A cute teddy bear is reading.</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box hl">[BOS] A cute teddy bear is reading . [EOS]</div>
-      </div>
-      <div class="flow-row">
-        <div class="flow-box">tokens</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box">+ embedding aprendido</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box hl">+ positional encoding</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box">matriz position-aware</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 23: END-TO-END ENCODER PASS -->
-  <section class="slide">
-    <div class="eyebrow">10 · Exemplo end-to-end · Passo 2</div>
-    <h1 class="slide-title">Passagem pelo encoder</h1>
-    <p class="slide-sub">A matriz position-aware entra no encoder. Cada head calcula Q, K, V; as heads são concatenadas e projetadas de volta por W_o.</p>
-    <div class="content">
-      <div class="card formula-card" style="margin-bottom: 16px;">
-        <div class="f">head = <span class="amber">softmax</span>(<span class="peri">QKᵀ</span>/√d_k) <span class="peri">V</span>, &nbsp; MHA = [head₁, …, head_h] <span class="peri">W_o</span></div>
-        <div class="cap">média ponderada dos values, com pesos vindos da similaridade query·key</div>
-      </div>
-      <div class="flow-row">
-        <div class="flow-box hl">self-attention (×h heads)</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box">Add & Norm</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box">feed forward</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box">Add & Norm</div>
-      </div>
-      <div class="flow-row">
-        <div class="flow-box">(repete ×N)</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box hl">embeddings context-aware</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 24: END-TO-END DECODER FIRST TOKEN -->
-  <section class="slide">
-    <div class="eyebrow">10 · Exemplo end-to-end · Passo 3</div>
-    <h1 class="slide-title">Decoder gera o primeiro token</h1>
-    <p class="slide-sub">O decoder começa só com [BOS]. Self-attention mascarada, depois cross-attention usando as keys/values do encoder.</p>
-    <div class="content">
-      <div class="flow-row">
-        <div class="flow-box">[BOS]</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box hl">masked self-attention</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box hl">encoder-decoder attention</div>
-      </div>
-      <div class="align-note" style="margin-bottom:14px;">↑ Q vem do decoder; K, V vêm dos embeddings context-aware do encoder</div>
-      <div class="flow-row">
-        <div class="flow-box">feed forward</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box">linear</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box hl">softmax → P(próximo token)</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box" style="border-color:var(--amber); color:var(--amber);">"Un"</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 25: END-TO-END AUTOREGRESSIVE LOOP -->
-  <section class="slide">
-    <div class="eyebrow">10 · Exemplo end-to-end · Passo 4</div>
-    <h1 class="slide-title">Geração autoregressiva até [EOS]</h1>
-    <p class="slide-sub">O token gerado volta como entrada do decoder, junto com [BOS] — repete-se o processo até [EOS] aparecer.</p>
-    <div class="content">
-      <div class="flow-row"><div class="flow-box">[BOS]</div><div class="flow-arrow">→</div><div class="flow-box hl">Un</div></div>
-      <div class="flow-row"><div class="flow-box">[BOS] Un</div><div class="flow-arrow">→</div><div class="flow-box hl">ours en peluche</div></div>
-      <div class="flow-row"><div class="flow-box">[BOS] Un ours en peluche</div><div class="flow-arrow">→</div><div class="flow-box hl">mignon</div></div>
-      <div class="flow-row"><div class="flow-box">[BOS] Un ours en peluche mignon</div><div class="flow-arrow">→</div><div class="flow-box hl">lit</div></div>
-      <div class="flow-row"><div class="flow-box">[BOS] Un ours en peluche mignon lit</div><div class="flow-arrow">→</div><div class="flow-box" style="border-color:var(--amber); color:var(--amber);">[EOS]</div></div>
-    </div>
-  </section>
-
-  <!-- 26: CLOSING RECAP -->
-  <section class="slide">
-    <div class="eyebrow">Recapitulando</div>
-    <h1 class="slide-title">Do texto bruto à tradução</h1>
-    <p class="slide-sub">O pipeline inteiro, de ponta a ponta.</p>
-    <div class="content">
-      <div class="flow-row">
-        <div class="flow-box">A cute teddy bear is reading.</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box">tokenização + embeddings + PE</div>
-      </div>
-      <div class="flow-row">
-        <div class="flow-box">→</div>
-        <div class="flow-box">encoder (self-attention × N)</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box">embeddings context-aware</div>
-      </div>
-      <div class="flow-row">
-        <div class="flow-box">→</div>
-        <div class="flow-box">decoder (self + cross-attention × N)</div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-box">softmax, token a token</div>
-      </div>
-      <div class="flow-row">
-        <div class="flow-box">→</div>
-        <div class="flow-box hl">Un ours en peluche mignon lit.</div>
       </div>
     </div>
   </section>
