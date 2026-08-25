@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aula 1 — Transformers: Introdução (light)</title>
+<style>
+  :root {
+    --bg: #F8F5EE;
+    --panel: #FFFFFF;
+    --panel-2: #EEE9DD;
+    --line: rgba(53,72,180,0.18);
+    --line-soft: rgba(30,30,35,0.09);
+    --ink: #21242C;
+    --ink-dim: #4E5468;
+    --ink-faint: #7A7F94;
+    --amber: #A85F00;
+    --amber-dim: rgba(168,95,0,0.35);
+    --amber-bg: rgba(168,95,0,0.10);
+    --peri: #3548B4;
+    --peri-dim: rgba(53,72,180,0.30);
+    --value-green: #1F8A4C;
+    --value-green-dim: rgba(31,138,76,0.4);
+    --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    overflow: hidden;
+    height: 100%;
+  }
+
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size: 42px 42px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .deck { position: relative; width: 100vw; height: 100vh; z-index: 1; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    padding: 56px 84px 96px;
+    opacity: 0; transform: translateY(14px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    pointer-events: none; overflow: hidden;
+  }
+  .slide.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--amber); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .eyebrow::before { content: ""; width: 18px; height: 1px; background: var(--amber); display: inline-block; }
+
+  h1.slide-title {
+    font-family: var(--font-display); font-weight: 600; font-size: 34px; line-height: 1.15;
+    margin: 0 0 6px 0; color: var(--ink); max-width: 900px; flex-shrink: 0;
+  }
+  h1.slide-title em { font-style: normal; color: var(--peri); }
+  .slide-sub {
+    font-size: 14.5px; color: var(--ink-dim); margin: 0 0 20px 0; max-width: 760px;
+    line-height: 1.5; flex-shrink: 0;
+  }
+  .content { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+
+  .footer {
+    position: absolute; left: 84px; right: 84px; bottom: 22px;
+    display: flex; align-items: center; justify-content: space-between; z-index: 5;
+  }
+  .credit { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.03em; }
+  .attn-row { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; max-width: 46vw; }
+  .attn-cell {
+    width: 13px; height: 13px; border-radius: 2px; background: var(--panel-2);
+    border: 1px solid var(--line); cursor: pointer; transition: background 0.2s, border-color 0.2s;
+  }
+  .attn-cell.past { background: var(--peri-dim); border-color: var(--peri); }
+  .attn-cell.now { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 10px var(--amber-dim); }
+  .navbtns { display: flex; gap: 8px; }
+  .navbtn {
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-dim); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 6px 12px; cursor: pointer;
+  }
+  .navbtn:hover { color: var(--ink); border-color: var(--peri); }
+  .navbtn:disabled { opacity: 0.3; cursor: default; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(30,30,35,0.06); }
+  .tag { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--peri); }
+
+  /* ===== TITLE ===== */
+  .title-slide { justify-content: center; padding-top: 0; }
+  .title-slide .content { justify-content: center; }
+  .hero-row { display: flex; align-items: center; gap: 50px; }
+  .hero-text { max-width: 560px; }
+  .hero-text .kicker { font-family: var(--font-mono); color: var(--amber); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 16px; }
+  .hero-text h1 { font-family: var(--font-display); font-size: 46px; line-height: 1.08; margin: 0 0 16px 0; font-weight: 600; }
+  .hero-text h1 .accent { color: var(--peri); }
+  .hero-text p { color: var(--ink-dim); font-size: 15.5px; line-height: 1.6; margin: 0 0 22px 0; }
+  .hero-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-faint); display: flex; gap: 20px; flex-wrap: wrap; }
+  .grid-hero { display: grid; grid-template-columns: repeat(6, 26px); grid-template-rows: repeat(6, 26px); gap: 5px; flex-shrink: 0; }
+  .grid-hero .cell { width: 26px; height: 26px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--line); animation: pulse 3.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { background: var(--panel-2); } 50% { background: var(--amber-dim); } }
+
+  /* ===== AGENDA ===== */
+  .agenda-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
+  .agenda-list { display: flex; flex-direction: column; gap: 0; }
+  .agenda-item { display: flex; align-items: baseline; gap: 14px; padding: 9px 4px; border-bottom: 1px solid var(--line-soft); }
+  .agenda-item .idx { font-family: var(--font-mono); color: var(--ink-faint); font-size: 12px; width: 20px; }
+  .agenda-item .label { font-size: 14.5px; color: var(--ink); font-family: var(--font-display); }
+  .agenda-item .note { margin-left: auto; font-size: 10.5px; color: var(--ink-faint); font-family: var(--font-mono); text-align: right; }
+
+  /* ===== TASK GRID ===== */
+  .task-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .task-card .tag { margin-bottom: 8px; }
+  .task-card .io { font-family: var(--font-mono); font-size: 12px; color: var(--peri); background: var(--panel-2); padding: 8px 10px; border-radius: 5px; margin-bottom: 12px; }
+  .task-card ul { margin: 0; padding-left: 16px; color: var(--ink-dim); font-size: 12.5px; line-height: 1.75; }
+  .task-card .metrics { margin-top: 12px; font-size: 11px; color: var(--ink-faint); font-family: var(--font-mono); }
+
+  /* ===== TOKENIZATION ===== */
+  .tok-example { font-family: var(--font-mono); font-size: 13px; color: var(--ink-dim); margin-bottom: 18px; }
+  .tok-row { display: flex; align-items: center; gap: 12px; margin-bottom: 7px; }
+  .tok-label { width: 118px; font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono); flex-shrink: 0; }
+  .tok-chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 4px 9px; font-family: var(--font-mono); font-size: 12px; color: var(--ink); }
+  .tok-chip.split { border-color: var(--peri); color: var(--peri); }
+  .tok-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+  table.compare { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  table.compare th { text-align: left; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); padding: 6px 14px 8px 0; border-bottom: 1px solid var(--line); }
+  table.compare td { padding: 9px 14px 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; color: var(--ink-dim); vertical-align: top; }
+  table.compare td.method { color: var(--ink); font-family: var(--font-display); font-size: 14px; }
+
+  /* ===== WORD2VEC ===== */
+  .w2v-flow { display: flex; align-items: center; gap: 0; margin-bottom: 22px; }
+  .w2v-box { font-family: var(--font-mono); font-size: 12px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 16px; text-align: center; }
+  .w2v-arrow { color: var(--ink-faint); padding: 0 12px; font-size: 16px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ===== RNN CHAIN ===== */
+  .chain-cols { display: flex; margin-bottom: 20px; }
+  .chain-node { width: 46px; height: 46px; border-radius: 50%; border: 1.5px solid var(--peri); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 10px; color: var(--peri); background: var(--panel-2); flex-shrink: 0; }
+  .chain-connector { width: 24px; height: 1.5px; background: var(--peri-dim); flex-shrink: 0; align-self: center; }
+  .chain-token { text-align: center; font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 7px; }
+  .chain-col { display: flex; flex-direction: column; align-items: center; }
+
+  .problem-list { display: flex; flex-direction: column; gap: 10px; }
+  .problem-item { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; }
+  .problem-item .mark { color: var(--amber); font-family: var(--font-mono); font-size: 13px; margin-top: 1px; }
+  .problem-item .txt { color: var(--ink-dim); font-size: 13px; line-height: 1.6; }
+  .problem-item .txt b { color: var(--ink); font-weight: 600; }
+
+  /* ===== TRANSLATE / ATTENTION HISTORY ===== */
+  .translate-demo { margin: 6px 0 20px 0; }
+  .translate-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .word-chip { font-family: var(--font-mono); font-size: 12.5px; padding: 6px 10px; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-dim); }
+  .word-chip.src { border-color: var(--peri); color: var(--peri); }
+  .word-chip.tgt { border-color: var(--amber); color: var(--amber); }
+  .align-note { font-size: 12px; color: var(--ink-faint); font-family: var(--font-mono); }
+
+  .quote-block { border-left: 2px solid var(--amber); padding-left: 18px; margin: 4px 0 20px 0; }
+  .quote-block .q { font-family: var(--font-display); font-size: 18px; color: var(--ink); line-height: 1.4; font-style: italic; }
+  .quote-block .src { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-top: 8px; }
+
+  .bignum-row { display: flex; gap: 30px; }
+  .bignum .n { font-family: var(--font-display); font-size: 32px; color: var(--peri); line-height: 1; }
+  .bignum .l { font-size: 12px; color: var(--ink-faint); margin-top: 5px; max-width: 170px; }
+
+  /* ===== QKV DEMO ===== */
+  .qkv-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 10px 0 20px 0; }
+  .qkv-line { display: flex; gap: 6px; }
+  .qkv-tok { width: 96px; text-align: center; font-family: var(--font-mono); font-size: 11.5px; padding: 6px 4px; border-radius: 4px; border: 1px solid var(--line); }
+  .qkv-tok.v { color: var(--value-green); border-color: var(--value-green-dim); }
+  .qkv-tok.token { color: var(--ink); background: var(--panel-2); }
+  .qkv-tok.k { color: var(--peri); border-color: var(--peri-dim); }
+  .qkv-tok.focus { outline: 2px solid var(--amber); }
+  .qkv-query { margin-top: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--amber); background: var(--amber-bg); border: 1px solid var(--amber-dim); border-radius: 5px; padding: 8px 16px; }
+
+  /* ===== FORMULA CARD ===== */
+  .formula-card { text-align: center; padding: 26px; }
+  .formula-card .f { font-family: var(--font-mono); font-size: 22px; color: var(--ink); letter-spacing: 0.02em; }
+  .formula-card .f .amber { color: var(--amber); }
+  .formula-card .f .peri { color: var(--peri); }
+  .formula-card .cap { margin-top: 12px; font-size: 12px; color: var(--ink-faint); }
+
+  /* ===== ARCH DIAGRAM ===== */
+  .arch-wrap { display: flex; gap: 30px; justify-content: center; }
+  .arch-col { display: flex; flex-direction: column; gap: 5px; width: 240px; }
+  .arch-colhead { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); text-align: center; margin-bottom: 4px; }
+  .arch-colhead .nx { color: var(--peri); }
+  .arch-box {
+    font-family: var(--font-mono); font-size: 11px; text-align: center; color: var(--ink-faint);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 8px 6px;
+    transition: all 0.25s ease;
+  }
+  .arch-box.hl { color: var(--bg); background: var(--amber); border-color: var(--amber); font-weight: 700; box-shadow: 0 0 16px var(--amber-dim); }
+  .arch-box.dim2 { opacity: 0.45; }
+  .arch-note { text-align: center; font-size: 10px; color: var(--ink-faint); font-family: var(--font-mono); margin-top: 2px; }
+
+  .param-row { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; }
+  .param-chip { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-dim); }
+  .param-chip b { color: var(--peri); }
+
+  @media (max-width: 1000px) {
+    .slide { padding: 30px 20px 100px; }
+    h1.slide-title, .hero-text h1 { font-size: 24px; }
+    .task-grid, .three-col { grid-template-columns: 1fr; }
+    .two-col, .agenda-cols { grid-template-columns: 1fr; }
+    .hero-row { flex-direction: column; }
+    .arch-wrap { flex-direction: column; align-items: center; }
+    .footer { left: 20px; right: 20px; }
+    .attn-row { max-width: 60vw; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 0: TITLE -->
+  <section class="slide title-slide active">
+    <div class="content">
+      <div class="hero-row">
+        <div class="hero-text">
+          <div class="kicker">Grupo de Estudos · Deep Learning Teórico</div>
+          <h1>Aula 1<br><span class="accent">Transformers</span>: Introdução</h1>
+          <p>Um percurso integral pelos fundamentos — de tarefas de NLP e tokenização até a arquitetura completa do transformer</p>
+          <div class="hero-meta">
+            <span>DO ZERO À ARQUITETURA COMPLETA</span>
+            <span>VASWANI ET AL., 2017</span>
+          </div>
+        </div>
+        <div class="grid-hero" id="gridHero"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1: AGENDA -->
+  <section class="slide">
+    <div class="eyebrow">Roteiro</div>
+    <h1 class="slide-title">O caminho completo</h1>
+    <p class="slide-sub">Contexto de NLP → representações → RNNs → nascimento da atenção → arquitetura completa do transformer.</p>
+    <div class="content">
+      <div class="agenda-cols">
+        <div class="agenda-list">
+          <div class="agenda-item"><span class="idx">01</span><span class="label">NLP overview</span><span class="note">tarefas & métricas</span></div>
+          <div class="agenda-item"><span class="idx">02</span><span class="label">Tokenização</span><span class="note">word · subword · char</span></div>
+          <div class="agenda-item"><span class="idx">03</span><span class="label">Word representation</span><span class="note">one-hot → embeddings</span></div>
+          <div class="agenda-item"><span class="idx">04</span><span class="label">RNNs & LSTM</span><span class="note">e suas limitações</span></div>
+          <div class="agenda-item"><span class="idx">05</span><span class="label">Nascimento da atenção</span><span class="note">Bahdanau, 2014</span></div>
+          <div class="agenda-item"><span class="idx">06</span><span class="label">Self-attention mechanism</span><span class="note">Q, K, V</span></div>
+        </div>
+        <div class="agenda-list">
+          <div class="agenda-item"><span class="idx">07</span><span class="label">Transformer architecture</span><span class="note">encoder & decoder</span></div>
+          <div class="agenda-item"><span class="idx">08</span><span class="label">Input & positional encoding</span><span class="note">V, d_model</span></div>
+          <div class="agenda-item"><span class="idx">09</span><span class="label">Encoder & Decoder</span><span class="note">N, h, d_FF, d_key, d_value</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2: NLP TASKS -->
+  <section class="slide">
+    <div class="eyebrow">01 · NLP overview</div>
+    <h1 class="slide-title">Três famílias de problemas</h1>
+    <div class="content">
+      <div class="task-grid">
+        <div class="card task-card">
+          <div class="tag">Classificação</div>
+          <div class="io">texto → 1 rótulo</div>
+          <ul><li>Sentiment extraction</li><li>Intent detection</li><li>Language detection</li><li>Topic modeling</li></ul>
+          <div class="metrics">accuracy · precision · recall · F1</div>
+        </div>
+        <div class="card task-card">
+          <div class="tag">"Multi"-classificação</div>
+          <div class="io">texto → 1 rótulo por token</div>
+          <ul><li>Part-of-speech tagging</li><li>Named entity recognition</li><li>Dependency parsing</li><li>Constituency parsing</li></ul>
+          <div class="metrics">precision/recall por entidade</div>
+        </div>
+        <div class="card task-card">
+          <div class="tag">Geração</div>
+          <div class="io">texto → texto</div>
+          <ul><li>Tradução automática</li><li>Question answering</li><li>Sumarização</li><li>Geração de texto</li></ul>
+          <div class="metrics">BLEU · ROUGE · perplexidade</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3: TOKENIZATION -->
+  <section class="slide">
+    <div class="eyebrow">02 · Tokenização</div>
+    <h1 class="slide-title">Como quebrar o texto em unidades</h1>
+    <p class="slide-sub">Essa escolha determina o vocabulário V e volta quando falarmos do parâmetro <b style="color:var(--ink)">V</b> na entrada e saída do transformer.</p>
+    <div class="content">
+      <div class="tok-example">
+        <div class="tok-row"><span class="tok-label">frase original</span><span class="tok-chip">A cute teddy bear is reading.</span></div>
+        <div class="tok-row"><span class="tok-label">word-level</span><div class="tok-chips">
+          <span class="tok-chip split">A</span><span class="tok-chip split">cute</span><span class="tok-chip split">teddy</span><span class="tok-chip split">bear</span><span class="tok-chip split">is</span><span class="tok-chip split">reading</span><span class="tok-chip split">.</span>
+        </div></div>
+        <div class="tok-row"><span class="tok-label">subword (BPE)</span><div class="tok-chips">
+          <span class="tok-chip split">A</span><span class="tok-chip split">cute</span><span class="tok-chip split">ted</span><span class="tok-chip split">##dy</span><span class="tok-chip split">bear</span><span class="tok-chip split">is</span><span class="tok-chip split">read</span><span class="tok-chip split">##ing</span><span class="tok-chip split">.</span>
+        </div></div>
+        <div class="tok-row"><span class="tok-label">character-level</span><div class="tok-chips">
+          <span class="tok-chip split">A</span><span class="tok-chip split">_</span><span class="tok-chip split">c</span><span class="tok-chip split">u</span><span class="tok-chip split">t</span><span class="tok-chip split">e</span><span class="tok-chip split">…</span>
+        </div></div>
+      </div>
+      <table class="compare">
+        <tr><th>Método</th><th>Vantagens</th><th>Desvantagens</th></tr>
+        <tr><td class="method">Word-level</td><td>Simples, interpretável</td><td>Risco de OOV; não aproveita raízes</td></tr>
+        <tr><td class="method">Subword</td><td>Aproveita prefixos/sufixos comuns; aprendido dos dados</td><td>Ainda há risco de OOV, porém menor</td></tr>
+        <tr><td class="method">Character-level</td><td>Chance mínima de OOV; robusto a erros de digitação</td><td>Sequências mais longas; embeddings menos interpretáveis</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 4: WORD REPRESENTATION MOTIVATION -->
+  <section class="slide">
+    <div class="eyebrow">03 · Word representation</div>
+    <h1 class="slide-title">De rótulos arbitrários a vetores</h1>
+    <p class="slide-sub">Um token precisa virar número antes de entrar em qualquer rede. A escolha de representação afeta diretamente o que o modelo consegue aprender.</p>
+    <div class="content">
+      <div class="two-col">
+        <div class="card">
+          <div class="tag">One-hot encoding</div>
+          <p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:10px 0 0 0;">Cada token é um vetor de tamanho <b style="color:var(--ink)">V</b> (vocabulário) com um único 1. Não carrega noção de similaridade: "gato" e "gata" são tão distantes quanto "gato" e "carro".</p>
+        </div>
+        <div class="card">
+          <div class="tag">Embedding aprendido</div>
+          <p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:10px 0 0 0;">Vetor denso de dimensão <b style="color:var(--ink)">d ≪ V</b>, aprendido a partir dos dados. Palavras com uso similar terminam próximas no espaço vetorial.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5: WORD2VEC -->
+  <section class="slide">
+    <div class="eyebrow">03 · Word representation</div>
+    <h1 class="slide-title">Word2Vec (Mikolov et al., 2013)</h1>
+    <p class="slide-sub">Rede rasa treinada numa tarefa-proxy sobre bilhões de palavras. O que sobra de útil é a camada oculta: o embedding. Mas cada palavra ainda tem <b style="color:var(--ink)">um único vetor fixo</b> — sem contexto.</p>
+    <div class="content">
+      <div class="w2v-flow">
+        <div class="w2v-box">input<br>tamanho V<br><span style="color:var(--ink-faint)">(one-hot)</span></div>
+        <div class="w2v-arrow">→</div>
+        <div class="w2v-box" style="border-color:var(--peri); color:var(--peri)">hidden<br>tamanho d<br><span style="color:var(--ink-faint)">(embedding)</span></div>
+        <div class="w2v-arrow">→</div>
+        <div class="w2v-box">output<br>tamanho V<br><span style="color:var(--ink-faint)">(softmax)</span></div>
+      </div>
+      <div class="two-col">
+        <div class="card"><div class="tag">CBOW</div><p style="color:var(--ink-dim); font-size:12.5px; line-height:1.7; margin:8px 0 0 0;">Prevê a palavra central a partir do contexto: "…A cute <b style="color:var(--ink)">teddy bear</b> is reading…" → contexto prevê "teddy bear".</p></div>
+        <div class="card"><div class="tag">Skip-gram</div><p style="color:var(--ink-dim); font-size:12.5px; line-height:1.7; margin:8px 0 0 0;">O inverso: da palavra central, prevê o contexto ao redor. Mais eficaz com palavras raras.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6: RNN -->
+  <section class="slide">
+    <div class="eyebrow">04 · RNNs</div>
+    <h1 class="slide-title">Carregando um estado adiante</h1>
+    <p class="slide-sub">Introduzida nos anos 1980. Cada estado oculto h_t depende de h_(t-1) e do token atual — isso captura ordem, o que Word2Vec ignorava.</p>
+    <div class="content">
+      <div class="chain-cols">
+        <div class="chain-col"><div class="chain-node">h₁</div><div class="chain-token">"A"</div></div>
+        <div class="chain-connector"></div>
+        <div class="chain-col"><div class="chain-node">h₂</div><div class="chain-token">"cute"</div></div>
+        <div class="chain-connector"></div>
+        <div class="chain-col"><div class="chain-node">h₃</div><div class="chain-token">"teddy bear"</div></div>
+        <div class="chain-connector"></div>
+        <div class="chain-col"><div class="chain-node">h₄</div><div class="chain-token">"is"</div></div>
+        <div class="chain-connector"></div>
+        <div class="chain-col"><div class="chain-node">h₅</div><div class="chain-token">"reading"</div></div>
+      </div>
+      <div class="card" style="max-width:640px;">
+        <p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:0;"><b style="color:var(--ink)">LSTM (1997)</b> — "Long Short-Term Memory": estrutura mais elaborada no estado da célula (gates de entrada/esquecimento/saída), mitigando — mas não eliminando — o problema seguinte.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7: RNN LIMITATIONS -->
+  <section class="slide">
+    <div class="eyebrow">04 · Por que RNNs quebram</div>
+    <h1 class="slide-title">Duas rachaduras estruturais</h1>
+    <p class="slide-sub">São essas duas rachaduras que motivam, primeiro a atenção (2014) e depois o transformer inteiro (2017).</p>
+    <div class="content">
+      <div class="problem-list">
+        <div class="card problem-item"><span class="mark">01</span><span class="txt"><b>Vanishing gradient.</b> Ao retropropagar por muitos passos temporais, o gradiente encolhe exponencialmente — dependências de longo alcance ficam quase invisíveis para o treinamento.</span></div>
+        <div class="card problem-item"><span class="mark">02</span><span class="txt"><b>Computação estritamente sequencial.</b> h_t não pode ser calculado antes de h_(t-1) — isso impede paralelização em GPU.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8: SUMMARY TABLE -->
+  <section class="slide">
+    <div class="eyebrow">Resumo · Métodos até aqui</div>
+    <h1 class="slide-title">Word2Vec vs. RNN</h1>
+    <p class="slide-sub">Dois avanços complementares, cada um resolvendo parte do problema — e deixando a outra parte em aberto.</p>
+    <div class="content">
+      <table class="compare">
+        <tr><th>Método</th><th>Prós</th><th>Contras</th></tr>
+        <tr><td class="method">Word2Vec<br><span style="font-size:11px; color:var(--ink-faint); font-family:var(--font-mono);">CBOW, Skip-gram</span></td><td>Simples e poderoso; embeddings intuitivos</td><td>Ordem das palavras não conta; embeddings não são context-aware</td></tr>
+        <tr><td class="method">RNN<br><span style="font-size:11px; color:var(--ink-faint); font-family:var(--font-mono);">tradicional, LSTM</span></td><td>Ordem das palavras importa; resultados state-of-the-art (à época)</td><td>Vanishing gradient; computação lenta e sequencial</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 9: HISTORY OF ATTENTION -->
+  <section class="slide">
+    <div class="eyebrow">05 · História da atenção — 2014</div>
+    <h1 class="slide-title">O primeiro remendo: Bahdanau et al.</h1>
+    <p class="slide-sub">Em tradução (seq2seq), o encoder precisava espremer a frase inteira em um único vetor de contexto — frases longas eram esquecidas. A solução: deixar o decoder "olhar de volta" para partes específicas do input.</p>
+    <div class="content">
+      <div class="translate-demo">
+        <div class="translate-row">
+          <span class="word-chip src">A</span><span class="word-chip src">cute</span><span class="word-chip src">teddy bear</span><span class="word-chip src">is</span><span class="word-chip src">reading</span>
+        </div>
+        <div class="align-note">↕ alinhamento aprendido, não posicional</div>
+        <div class="translate-row" style="margin-top:8px;">
+          <span class="word-chip tgt">Un</span><span class="word-chip tgt">ours en peluche</span><span class="word-chip tgt">mignon</span><span class="word-chip tgt">lit</span>
+        </div>
+      </div>
+      <div class="card" style="max-width:640px;">
+        <p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:0;">"ours en peluche" (3 tokens em francês) alinha com "teddy bear" (2 tokens em inglês) — o alinhamento é aprendido a partir do conteúdo, não da posição. É o embrião conceitual de query/key/value.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10: TRANSFORMER OVERVIEW 2017 -->
+  <section class="slide">
+    <div class="eyebrow">Transição · 2017</div>
+    <h1 class="slide-title">Overview do Transformer</h1>
+    <div class="content">
+      <div class="quote-block">
+        <div class="q">Introduzido no paper "Attention Is All You Need" — depende inteiramente do mecanismo de self-attention, sem nenhuma recorrência. Resultados state-of-the-art em tarefas de tradução automática.</div>
+        <div class="src">VASWANI ET AL., 2017</div>
+      </div>
+      <div class="bignum-row">
+        <div class="bignum"><div class="n">0</div><div class="l">camadas recorrentes — self-attention substitui a recorrência por completo</div></div>
+        <div class="bignum"><div class="n">O(1)</div><div class="l">passos sequenciais entre duas posições quaisquer</div></div>
+        <div class="bignum"><div class="n">100%</div><div class="l">paralelizável em GPU via forma matricial</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11: QKV CONCEPT -->
+  <section class="slide">
+    <div class="eyebrow">06 · Self-attention mechanism</div>
+    <h1 class="slide-title">O conceito de Query, Key, Value</h1>
+    <p class="slide-sub">Cada token gera três vetores. A query de um token é comparada com a key de todos os outros — o resultado pondera os values na soma final.</p>
+    <div class="content">
+      <div class="qkv-wrap">
+        <div class="qkv-line">
+          <div class="qkv-tok v">v_a</div><div class="qkv-tok v">v_cute</div><div class="qkv-tok v" style="width:130px;">v_teddy bear</div><div class="qkv-tok v">v_is</div><div class="qkv-tok v">v_reading</div><div class="qkv-tok v">v_.</div>
+        </div>
+        <div class="qkv-line">
+          <div class="qkv-tok token">a</div><div class="qkv-tok token">cute</div><div class="qkv-tok token focus" style="width:130px;">teddy bear</div><div class="qkv-tok token">is</div><div class="qkv-tok token">reading</div><div class="qkv-tok token">.</div>
+        </div>
+        <div class="qkv-line">
+          <div class="qkv-tok k">k_a</div><div class="qkv-tok k">k_cute</div><div class="qkv-tok k" style="width:130px;">k_teddy bear</div><div class="qkv-tok k">k_is</div><div class="qkv-tok k">k_reading</div><div class="qkv-tok k">k_.</div>
+        </div>
+        <div class="qkv-query">q_teddy bear — compara com todas as keys</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12: MATRIX COMPUTATION -->
+  <section class="slide">
+    <div class="eyebrow">06 · Self-attention mechanism</div>
+    <h1 class="slide-title">Computação eficiente com matrizes</h1>
+    <p class="slide-sub">A mesma ideia, vetorizada — é isso que roda de fato em GPU, processando todos os tokens de uma vez.</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div class="f">Attention(<span class="peri">Q</span>, <span class="peri">K</span>, <span class="peri">V</span>) = <span class="amber">softmax</span>( <span class="peri">Q</span><span class="peri">Kᵀ</span> / √d_k ) <span class="peri">V</span></div>
+        <div class="cap">Q, K, V empilhados como matrizes — uma linha por token. A saída é uma média ponderada dos values.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13: TRANSFORMER ARCHITECTURE OVERVIEW -->
+  <section class="slide">
+    <div class="eyebrow">07 · Transformer architecture</div>
+    <h1 class="slide-title">As três peças da arquitetura</h1>
+    <p class="slide-sub">Encoder e decoder são pilhas repetidas dessas três peças. Vamos percorrer cada bloco do diagrama nos próximos slides.</p>
+    <div class="content">
+      <div class="three-col">
+        <div class="card"><div class="tag">Attention layer (MHA)</div><p style="color:var(--ink-dim); font-size:12.5px; line-height:1.7; margin:8px 0 0 0;">Self-attention (encoder-encoder, decoder-decoder) + encoder-decoder attention</p></div>
+        <div class="card"><div class="tag">Feed Forward NN (FFNN)</div><p style="color:var(--ink-dim); font-size:12.5px; line-height:1.7; margin:8px 0 0 0;">Aplicada independentemente a cada posição/token</p></div>
+        <div class="card"><div class="tag">Positional Encoding (PE)</div><p style="color:var(--ink-dim); font-size:12.5px; line-height:1.7; margin:8px 0 0 0;">Injeta informação de posição, já que self-attention por si só é invariante à ordem</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14: INPUT -->
+  <section class="slide">
+    <div class="eyebrow">08 · Input</div>
+    <h1 class="slide-title">Da entrada bruta ao embedding</h1>
+    <p class="slide-sub">Texto é tokenizado, cada token vira um embedding aprendido.</p>
+    <div class="content">
+      <div class="arch-diagram" data-hl="e-embed,d-embed"></div>
+      <div class="param-row">
+        <span class="param-chip"><b>V</b> — tamanho do vocabulário</span>
+        <span class="param-chip"><b>d_model</b> — dimensão do embedding</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 15: POSITIONAL ENCODING -->
+  <section class="slide">
+    <div class="eyebrow">08 · Positional Encoding</div>
+    <h1 class="slide-title">...com um truque</h1>
+    <p class="slide-sub">Self-attention é invariante à ordem — sem PE, "o cachorro mordeu o homem" e "o homem mordeu o cachorro" seriam idênticos para o modelo. Solução: somar um padrão de posição aos embeddings, aprendido ou fixo (senoidal).</p>
+    <div class="content">
+      <div class="arch-diagram" data-hl="e-embed,d-embed"></div>
+      <div class="card" style="max-width:640px; margin-top:14px;">
+        <p style="color:var(--ink-dim); font-size:12.5px; line-height:1.7; margin:0;">Objetivo: deixar o modelo entender posição <b style="color:var(--ink)">relativa</b> entre tokens. Pode ser aprendido ou hardcoded (padrão senoidal do paper original).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 16: ENCODER -->
+  <section class="slide">
+    <div class="eyebrow">09 · Encoder</div>
+    <h1 class="slide-title">Encoder — self-attention + FFN</h1>
+    <p class="slide-sub">Encoder-encoder attention (self-attention) + feed forward + camada de normalização, empilhados N vezes.</p>
+    <div class="content">
+      <div class="arch-diagram" data-hl="e-mha,e-norm1,e-ffn,e-norm2"></div>
+      <div class="param-row">
+        <span class="param-chip"><b>N</b> — camadas empilhadas</span>
+        <span class="param-chip"><b>h</b> — número de heads</span>
+        <span class="param-chip"><b>d_FF, d_key, d_value</b> — dimensões das sub-camadas</span>
+        <span class="param-chip"><b>d_model</b> — dimensão do embedding</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 17: OUTPUT SHIFTED RIGHT -->
+  <section class="slide">
+    <div class="eyebrow">Decoder input</div>
+    <h1 class="slide-title">Output "shifted right"</h1>
+    <p class="slide-sub">O decoder recebe embeddings aprendidos dos tokens de saída — na prática, começa apenas com o token especial [BOS] durante a tradução.</p>
+    <div class="content">
+      <div class="arch-diagram" data-hl="d-embed"></div>
+      <div class="param-row">
+        <span class="param-chip"><b>V</b> — tamanho do vocabulário</span>
+        <span class="param-chip"><b>d_model</b> — dimensão do embedding</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18: DECODER -->
+  <section class="slide">
+    <div class="eyebrow">09 · Decoder</div>
+    <h1 class="slide-title">Decoder — self, cross e FFN</h1>
+    <p class="slide-sub">Decoder-decoder attention (mascarada) + encoder-decoder attention (cross-attention) + feed forward + normalização, empilhados N vezes.</p>
+    <div class="content">
+      <div class="arch-diagram" data-hl="d-mmha,d-norm1,d-cross,d-norm2,d-ffn,d-norm3"></div>
+      <div class="param-row">
+        <span class="param-chip"><b>N</b> — camadas empilhadas</span>
+        <span class="param-chip"><b>h</b> — número de heads</span>
+        <span class="param-chip"><b>d_FF, d_key, d_value</b> — dimensões das sub-camadas</span>
+        <span class="param-chip"><b>d_model</b> — dimensão do embedding</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 19: OUTPUT -->
+  <section class="slide">
+    <div class="eyebrow">Saída final</div>
+    <h1 class="slide-title">Output — linear + softmax</h1>
+    <p class="slide-sub">Projeção linear seguida de softmax: um problema de classificação onde cada classe é uma palavra do vocabulário.</p>
+    <div class="content">
+      <div class="arch-diagram" data-hl="out-linear,out-softmax"></div>
+      <div class="param-row">
+        <span class="param-chip"><b>V</b> — tamanho do vocabulário</span>
+        <span class="param-chip"><b>d_model</b> — dimensão do embedding</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="credit">GRUPO DE ESTUDOS · TRANSFORMERS — AULA 1</div>
+    <div class="attn-row" id="attnRow"></div>
+    <div class="navbtns">
+      <button class="navbtn" id="prevBtn">← anterior</button>
+      <button class="navbtn" id="nextBtn">próximo →</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ----- reusable encoder/decoder architecture diagram -----
+  function archHTML(hl) {
+    const H = new Set((hl || '').split(',').filter(Boolean));
+    const cls = id => 'arch-box' + (H.has(id) ? ' hl' : '');
+    return `
+      <div class="arch-wrap">
+        <div class="arch-col">
+          <div class="arch-colhead">ENCODER <span class="nx">×N</span></div>
+          <div class="${cls('e-norm2')}">Add &amp; Norm</div>
+          <div class="${cls('e-ffn')}">Feed Forward</div>
+          <div class="${cls('e-norm1')}">Add &amp; Norm</div>
+          <div class="${cls('e-mha')}">Multi-Head Attention</div>
+          <div class="${cls('e-embed')}">Embedding + Pos. Encoding</div>
+        </div>
+        <div class="arch-col">
+          <div class="arch-colhead">DECODER <span class="nx">×N</span></div>
+          <div class="${cls('out-softmax')}">Softmax</div>
+          <div class="${cls('out-linear')}">Linear</div>
+          <div class="${cls('d-norm3')}">Add &amp; Norm</div>
+          <div class="${cls('d-ffn')}">Feed Forward</div>
+          <div class="${cls('d-norm2')}">Add &amp; Norm</div>
+          <div class="${cls('d-cross')}">Encoder-Decoder Attention</div>
+          <div class="${cls('d-norm1')}">Add &amp; Norm</div>
+          <div class="${cls('d-mmha')}">Masked Multi-Head Attention</div>
+          <div class="${cls('d-embed')}">Embedding + Pos. Encoding</div>
+        </div>
+      </div>`;
+  }
+  document.querySelectorAll('.arch-diagram').forEach(el => {
+    el.innerHTML = archHTML(el.dataset.hl);
+  });
+
+  // ----- slide navigation -----
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  const attnRow = document.getElementById('attnRow');
+  for (let i = 0; i < total; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'attn-cell';
+    cell.addEventListener('click', () => goTo(i));
+    attnRow.appendChild(cell);
+  }
+  const cells = attnRow.querySelectorAll('.attn-cell');
+
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle('active', i === current));
+    cells.forEach((c, i) => {
+      c.classList.toggle('now', i === current);
+      c.classList.toggle('past', i < current);
+    });
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').disabled = current === total - 1;
+  }
+  function goTo(i) { current = Math.max(0, Math.min(total - 1, i)); render(); }
+
+  document.getElementById('prevBtn').addEventListener('click', () => goTo(current - 1));
+  document.getElementById('nextBtn').addEventListener('click', () => goTo(current + 1));
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') goTo(current + 1);
+    if (e.key === 'ArrowLeft') goTo(current - 1);
+  });
+
+  const gridHero = document.getElementById('gridHero');
+  for (let i = 0; i < 36; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.animationDelay = (Math.random() * 3.6).toFixed(2) + 's';
+    gridHero.appendChild(cell);
+  }
+
+  render();
+</script>
+</body>
+</html>
