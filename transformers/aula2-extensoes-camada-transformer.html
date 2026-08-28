@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aula 2 — Extensões e a Camada Transformer Completa</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+  :root {
+    --bg: #F8F5EE;
+    --panel: #FFFFFF;
+    --panel-2: #EEE9DD;
+    --line: rgba(53,72,180,0.18);
+    --line-soft: rgba(30,30,35,0.09);
+    --ink: #21242C;
+    --ink-dim: #4E5468;
+    --ink-faint: #7A7F94;
+    --amber: #A85F00;
+    --amber-dim: rgba(168,95,0,0.35);
+    --amber-bg: rgba(168,95,0,0.10);
+    --peri: #3548B4;
+    --peri-dim: rgba(53,72,180,0.30);
+    --value-green: #1F8A4C;
+    --value-green-dim: rgba(31,138,76,0.4);
+    --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    overflow: hidden;
+    height: 100%;
+  }
+
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size: 42px 42px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .deck { position: relative; width: 100vw; height: 100vh; z-index: 1; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    padding: 56px 84px 96px;
+    opacity: 0; transform: translateY(14px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    pointer-events: none; overflow: hidden;
+  }
+  .slide.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--amber); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .eyebrow::before { content: ""; width: 18px; height: 1px; background: var(--amber); display: inline-block; }
+
+  h1.slide-title {
+    font-family: var(--font-display); font-weight: 600; font-size: 32px; line-height: 1.15;
+    margin: 0 0 6px 0; color: var(--ink); max-width: 900px; flex-shrink: 0;
+  }
+  h1.slide-title em { font-style: normal; color: var(--peri); }
+  .slide-sub {
+    font-size: 14px; color: var(--ink-dim); margin: 0 0 18px 0; max-width: 780px;
+    line-height: 1.55; flex-shrink: 0;
+  }
+  .content { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+
+  .footer {
+    position: absolute; left: 84px; right: 84px; bottom: 22px;
+    display: flex; align-items: center; justify-content: space-between; z-index: 5;
+  }
+  .credit { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.03em; }
+  .attn-row { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; max-width: 46vw; }
+  .attn-cell {
+    width: 13px; height: 13px; border-radius: 2px; background: var(--panel-2);
+    border: 1px solid var(--line); cursor: pointer; transition: background 0.2s, border-color 0.2s;
+  }
+  .attn-cell.past { background: var(--peri-dim); border-color: var(--peri); }
+  .attn-cell.now { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 10px var(--amber-dim); }
+  .navbtns { display: flex; gap: 8px; }
+  .navbtn {
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-dim); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 6px 12px; cursor: pointer;
+  }
+  .navbtn:hover { color: var(--ink); border-color: var(--peri); }
+  .navbtn:disabled { opacity: 0.3; cursor: default; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(30,30,35,0.06); }
+  .tag { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--peri); }
+
+  /* ===== TITLE ===== */
+  .title-slide { justify-content: center; padding-top: 0; }
+  .title-slide .content { justify-content: center; }
+  .hero-row { display: flex; align-items: center; gap: 50px; }
+  .hero-text { max-width: 580px; }
+  .hero-text .kicker { font-family: var(--font-mono); color: var(--amber); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 16px; }
+  .hero-text h1 { font-family: var(--font-display); font-size: 42px; line-height: 1.1; margin: 0 0 16px 0; font-weight: 600; }
+  .hero-text h1 .accent { color: var(--peri); }
+  .hero-text p { color: var(--ink-dim); font-size: 15px; line-height: 1.6; margin: 0 0 22px 0; }
+  .hero-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-faint); display: flex; gap: 20px; flex-wrap: wrap; }
+  .grid-hero { display: grid; grid-template-columns: repeat(6, 26px); grid-template-rows: repeat(6, 26px); gap: 5px; flex-shrink: 0; }
+  .grid-hero .cell { width: 26px; height: 26px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--line); animation: pulse 3.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { background: var(--panel-2); } 50% { background: var(--amber-dim); } }
+
+  /* ===== AGENDA ===== */
+  .agenda-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
+  .agenda-list { display: flex; flex-direction: column; gap: 0; }
+  .agenda-item { display: flex; align-items: baseline; gap: 14px; padding: 10px 4px; border-bottom: 1px solid var(--line-soft); }
+  .agenda-item .idx { font-family: var(--font-mono); color: var(--ink-faint); font-size: 12px; width: 44px; }
+  .agenda-item .label { font-size: 14.5px; color: var(--ink); font-family: var(--font-display); }
+  .agenda-item .note { margin-left: auto; font-size: 10.5px; color: var(--ink-faint); font-family: var(--font-mono); text-align: right; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  .problem-list { display: flex; flex-direction: column; gap: 10px; }
+  .problem-item { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; }
+  .problem-item .mark { color: var(--amber); font-family: var(--font-mono); font-size: 13px; margin-top: 1px; }
+  .problem-item .txt { color: var(--ink-dim); font-size: 13px; line-height: 1.6; }
+  .problem-item .txt b { color: var(--ink); font-weight: 600; }
+
+  .quote-block { border-left: 2px solid var(--amber); padding-left: 18px; margin: 4px 0 20px 0; }
+  .quote-block .q { font-family: var(--font-display); font-size: 17px; color: var(--ink); line-height: 1.5; font-style: italic; }
+  .quote-block .src { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-top: 8px; }
+
+  /* ===== FORMULA CARD (KaTeX) ===== */
+  .formula-card { text-align: center; padding: 22px 26px; }
+  .formula-card .katex { font-size: 1.15em !important; color: var(--ink); }
+  .formula-card .katex-display { margin: 4px 0; }
+  .formula-card .cap { margin-top: 14px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  .formula-card .eqtag { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.06em; margin-bottom: 8px; }
+  .formula-stack { display: flex; flex-direction: column; gap: 12px; }
+
+  /* ===== SENTENCE COMPARISON (permutation equivariance) ===== */
+  .sent-compare { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 18px; }
+  .sent-line { display: flex; gap: 10px; align-items: center; }
+  .sent-tag { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); width: 100px; flex-shrink: 0; }
+  .sent-chip { font-family: var(--font-mono); font-size: 13px; padding: 6px 11px; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-dim); }
+  .sent-chip.diff { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+
+  /* ===== ROUTING / VALUE CHIPS (reused for softmax example) ===== */
+  .route-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 16px; }
+  .route-chip { font-family: var(--font-mono); font-size: 12.5px; padding: 7px 12px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-dim); }
+  .route-chip.tgt { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); font-weight: 600; }
+
+  /* ===== TRANSFORMER LAYER DIAGRAM ===== */
+  .tlayer-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0 10px; }
+  .tlayer-box {
+    width: 340px; text-align: center; font-family: var(--font-mono); font-size: 12.5px;
+    padding: 11px 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink);
+  }
+  .tlayer-box.op { background: var(--panel-2); color: var(--ink-dim); font-size: 11px; border-style: dashed; }
+  .tlayer-box.residual { border-color: var(--peri); color: var(--peri); font-weight: 600; }
+  .tlayer-box.norm { border-color: var(--amber); color: var(--amber); }
+  .tlayer-arrow { color: var(--ink-faint); font-size: 13px; line-height: 1; margin: 1px 0; }
+  .tlayer-side {
+    display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-faint); margin: 2px 0;
+  }
+  .tlayer-side .plus { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--peri); color: var(--peri); display: flex; align-items: center; justify-content: center; font-size: 11px; }
+
+  /* ===== RECAP CHAIN ===== */
+  .eq-chain { display: flex; flex-direction: column; gap: 0; max-width: 840px; margin: 0 auto; }
+  .eq-chain-item { display: flex; align-items: center; gap: 18px; padding: 9px 4px; border-bottom: 1px solid var(--line-soft); }
+  .eq-chain-item .eqtag { font-family: var(--font-mono); font-size: 11px; color: var(--peri); width: 54px; flex-shrink: 0; }
+  .eq-chain-item .eqform { flex: 1; }
+  .eq-chain-item .eqform .katex { font-size: 0.92em !important; }
+  .eq-chain-item .eqlabel { font-size: 11px; color: var(--ink-faint); font-family: var(--font-mono); text-align: right; width: 210px; flex-shrink: 0; }
+
+  .param-row { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; }
+  .param-chip { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-dim); }
+  .param-chip b { color: var(--peri); }
+
+  @media (max-width: 1000px) {
+    .slide { padding: 30px 20px 100px; }
+    h1.slide-title, .hero-text h1 { font-size: 24px; }
+    .three-col, .two-col, .agenda-cols { grid-template-columns: 1fr; }
+    .hero-row { flex-direction: column; }
+    .footer { left: 20px; right: 20px; }
+    .attn-row { max-width: 60vw; }
+    .eq-chain-item { flex-wrap: wrap; }
+    .tlayer-box { width: 260px; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 0: TITLE -->
+  <section class="slide title-slide active">
+    <div class="content">
+      <div class="hero-row">
+        <div class="hero-text">
+          <div class="kicker">Grupo de Estudos · Deep Learning Teórico</div>
+          <h1>Aula 2<br><span class="accent">Extensões</span> e a camada transformer completa</h1>
+          <p>De self-attention puro a um bloco pronto para empilhar — positional encoding, scaled dot-product, multi-head attention e a camada transformer completa.</p>
+          <div class="hero-meta">
+            <span>UDL CAP. 12 · PRINCE</span>
+            <span>SEÇÕES 12.3 – 12.4</span>
+            <span>EQ. 12.9 – 12.13</span>
+          </div>
+        </div>
+        <div class="grid-hero" id="gridHero"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1: AGENDA -->
+  <section class="slide">
+    <div class="eyebrow">Roteiro</div>
+    <h1 class="slide-title">Das extensões à camada completa</h1>
+    <p class="slide-sub">A Aula 1 chegou até $\text{Sa}[\mathbf{X}] = \mathbf{V}\cdot\text{Softmax}[\mathbf{K}^T\mathbf{Q}]$. Hoje adicionamos três extensões quase sempre usadas na prática, e fechamos a camada transformer inteira.</p>
+    <div class="content">
+      <div class="agenda-cols">
+        <div class="agenda-list">
+          <div class="agenda-item"><span class="idx">12.3.1</span><span class="label">Positional encoding</span><span class="note">absoluto & relativo</span></div>
+          <div class="agenda-item"><span class="idx">12.3.2</span><span class="label">Scaled dot-product attention</span><span class="note">eq. 12.9</span></div>
+          <div class="agenda-item"><span class="idx">12.3.3</span><span class="label">Multi-head attention</span><span class="note">eq. 12.10 – 12.12</span></div>
+        </div>
+        <div class="agenda-list">
+          <div class="agenda-item"><span class="idx">12.4</span><span class="label">Camada transformer completa</span><span class="note">eq. 12.13</span></div>
+          <div class="agenda-item"><span class="idx">→</span><span class="label">Recapitulação em cadeia</span><span class="note">eq. 12.9 – 12.13</span></div>
+          <div class="agenda-item"><span class="idx">→</span><span class="label">Fechamento e próximos passos</span><span class="note">o que fica para depois</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2: 12.3.1 MOTIVATION - PERMUTATION EQUIVARIANCE -->
+  <section class="slide">
+    <div class="eyebrow">12.3.1 · Positional encoding</div>
+    <h1 class="slide-title">O que falta: noção de ordem</h1>
+    <p class="slide-sub">Self-attention "puro" (eq. 12.8) é <b style="color:var(--ink)">equivariante a permutações</b> — não leva em conta a ordem dos inputs $\mathbf{x}_n$. Mas em linguagem, ordem carrega significado.</p>
+    <div class="content">
+      <div class="sent-compare">
+        <div class="sent-line"><span class="sent-tag">significado A</span><span class="sent-chip diff">A mulher comeu o guaxinim.</span></div>
+        <div class="sent-line"><span class="sent-tag">significado B</span><span class="sent-chip diff">O guaxinim comeu a mulher.</span></div>
+      </div>
+      <div class="card formula-card">
+        <div class="eqtag">Problem 12.3 — propriedade formal</div>
+        <div>$$\text{Sa}[\mathbf{X}\mathbf{P}] = \text{Sa}[\mathbf{X}]\,\mathbf{P}$$</div>
+        <div class="cap">para qualquer matriz de permutação $\mathbf{P}$ — trocar a ordem das colunas de $\mathbf{X}$ apenas reordena as saídas correspondentes, sem alterar seus valores. Isso mesmo é o problema: as duas frases acima teriam <i>os mesmos vetores de saída</i>, só reordenados.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3: ABSOLUTE POSITIONAL ENCODING -->
+  <section class="slide">
+    <div class="eyebrow">12.3.1 · Absolute positional encodings</div>
+    <h1 class="slide-title">Somar uma marca de posição</h1>
+    <p class="slide-sub">A solução mais direta: somar uma matriz $\boldsymbol{\Pi}$ ao input, onde cada coluna é única e codifica a posição absoluta (Fig. 12.5 do livro).</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div>$$\mathbf{X} \leftarrow \mathbf{X} + \boldsymbol{\Pi}$$</div>
+        <div class="cap">$\boldsymbol{\Pi}$ tem uma coluna distinta para cada posição — o padrão pode ser senoidal (fixo, escolhido à mão) ou aprendido como qualquer outro parâmetro.</div>
+      </div>
+      <div class="two-col" style="margin-top:16px;">
+        <div class="card"><div class="tag">Onde somar</div><p style="color:var(--ink-dim); font-size:12.5px; line-height:1.7; margin:8px 0 0 0;">Pode ser somada apenas nos embeddings de entrada, ou em <b style="color:var(--ink)">cada camada</b> do transformer.</p></div>
+        <div class="card"><div class="tag">Um detalhe sutil</div><p style="color:var(--ink-dim); font-size:12.5px; line-height:1.7; margin:8px 0 0 0;">Às vezes é somada apenas no cálculo de $\mathbf{Q}$ e $\mathbf{K}$ — não em $\mathbf{V}$.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4: RELATIVE POSITIONAL ENCODING -->
+  <section class="slide">
+    <div class="eyebrow">12.3.1 · Relative positional encodings</div>
+    <h1 class="slide-title">O que importa é a distância, não o lugar</h1>
+    <p class="slide-sub">A posição absoluta de uma palavra é menos importante que a posição relativa entre duas palavras — um trecho de texto pode começar em qualquer ponto de um documento.</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div>$$\mathbf{A}_{m,n} \leftarrow \mathbf{A}_{m,n} + \pi_{m-n}$$</div>
+        <div class="cap">Um parâmetro $\pi_{a,b}$ aprendido <b>para cada offset</b> entre a posição da key ($a$) e da query ($b$) — modifica a matriz de atenção somando, multiplicando, ou de outra forma.</div>
+      </div>
+      <div class="card" style="max-width:640px; margin-top:14px;">
+        <p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:0;">Captura algo como <i>"a palavra três posições atrás"</i>, em vez de <i>"a palavra na posição 7"</i> — mais robusto quando o mesmo texto pode ser fatiado em janelas diferentes.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5: WHY SCALE - NUMERIC EXAMPLE -->
+  <section class="slide">
+    <div class="eyebrow">12.3.2 · Motivação</div>
+    <h1 class="slide-title">Por que os produtos escalares precisam de freio</h1>
+    <p class="slide-sub">Produtos escalares podem ter magnitude grande, empurrando o softmax para uma região onde o maior valor domina completamente (Problem 12.4).</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div class="eqtag">exemplo — cinco pré-ativações</div>
+        <div>$$\mathbf{z} = [-3,\ \ 1,\ \ 100,\ \ 5,\ \ -1]$$</div>
+        <div>$$\text{softmax}(\mathbf{z}) \approx [0,\ \ 0,\ \ 1,\ \ 0,\ \ 0]$$</div>
+        <div class="cap">$z_3=100$ domina inteiramente. Pequenas mudanças em qualquer $z_i$ (inclusive $z_3$) têm efeito quase nulo na saída — os <b>25 gradientes</b> $\partial y_i/\partial z_j$ ficam próximos de zero. O modelo praticamente para de aprender ali.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6: EQ 12.9 SCALED DOT PRODUCT -->
+  <section class="slide">
+    <div class="eyebrow">12.3.2 · Scaled dot-product self-attention</div>
+    <h1 class="slide-title">A correção: dividir por √D_q</h1>
+    <p class="slide-sub">Escalonar os produtos escalares pela raiz da dimensão das queries/keys evita a saturação do softmax.</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div class="eqtag">EQ. 12.9</div>
+        <div>$$\text{Sa}[\mathbf{X}] = \mathbf{V}\cdot\text{Softmax}\left[\dfrac{\mathbf{K}^T\mathbf{Q}}{\sqrt{D_q}}\right]$$</div>
+        <div class="cap">$D_q$ = dimensão de queries e keys (número de linhas de $\boldsymbol{\Omega}_q$ e $\boldsymbol{\Omega}_k$ — que devem ser iguais entre si).</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7: MULTI-HEAD SETUP EQ 12.10 -->
+  <section class="slide">
+    <div class="eyebrow">12.3.3 · Multiple heads</div>
+    <h1 class="slide-title">H conjuntos de Q, K, V em paralelo</h1>
+    <p class="slide-sub">Em vez de um único self-attention, calculamos $H$ deles simultaneamente — cada "head" com seus próprios parâmetros.</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div class="eqtag">EQ. 12.10 — para cada head h</div>
+        <div>$$\mathbf{V}_h = \boldsymbol{\beta}_{vh}\mathbf{1}^T + \boldsymbol{\Omega}_{vh}\mathbf{X}$$</div>
+        <div>$$\mathbf{Q}_h = \boldsymbol{\beta}_{qh}\mathbf{1}^T + \boldsymbol{\Omega}_{qh}\mathbf{X}$$</div>
+        <div>$$\mathbf{K}_h = \boldsymbol{\beta}_{kh}\mathbf{1}^T + \boldsymbol{\Omega}_{kh}\mathbf{X}$$</div>
+        <div class="cap">Mesma matriz $\mathbf{X}$ de entrada para todas as heads — só os parâmetros $\{\boldsymbol{\beta}_{\bullet h},\boldsymbol{\Omega}_{\bullet h}\}$ diferem entre elas.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8: EQ 12.11 PER-HEAD ATTENTION -->
+  <section class="slide">
+    <div class="eyebrow">12.3.3 · Multiple heads</div>
+    <h1 class="slide-title">Cada head roda seu próprio scaled attention</h1>
+    <p class="slide-sub">A mesma eq. 12.9 de antes, aplicada de forma independente dentro de cada head.</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div class="eqtag">EQ. 12.11</div>
+        <div>$$\text{Sa}_h[\mathbf{X}] = \mathbf{V}_h\cdot\text{Softmax}\left[\dfrac{\mathbf{K}_h^T\mathbf{Q}_h}{\sqrt{D_q}}\right]$$</div>
+        <div class="cap">Parâmetros $\{\boldsymbol{\beta}_{vh},\boldsymbol{\Omega}_{vh}\}$, $\{\boldsymbol{\beta}_{qh},\boldsymbol{\Omega}_{qh}\}$, $\{\boldsymbol{\beta}_{kh},\boldsymbol{\Omega}_{kh}\}$ — <b>distintos para cada head</b> $h$.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9: EQ 12.12 CONCATENATE -->
+  <section class="slide">
+    <div class="eyebrow">12.3.3 · Multiple heads</div>
+    <h1 class="slide-title">Concatenar e recombinar</h1>
+    <p class="slide-sub">As saídas das $H$ heads são empilhadas verticalmente, e uma transformação linear $\boldsymbol{\Omega}_c$ as recombina (Fig. 12.6).</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div class="eqtag">EQ. 12.12</div>
+        <div>$$\text{MhSa}[\mathbf{X}] = \boldsymbol{\Omega}_c\big[\text{Sa}_1[\mathbf{X}]^T,\ \text{Sa}_2[\mathbf{X}]^T,\ \dots,\ \text{Sa}_H[\mathbf{X}]^T\big]^T$$</div>
+        <div class="cap">Se a entrada tem dimensão $D$ e há $H$ heads, tipicamente values/queries/keys de cada head têm tamanho $D/H$ — o que torna a implementação eficiente (Problem 12.5).</div>
+      </div>
+      <div class="card" style="max-width:660px; margin-top:14px; border-color:var(--peri);">
+        <p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:0;">Múltiplas heads parecem <b style="color:var(--ink)">necessárias</b> para o self-attention funcionar bem na prática — especula-se que tornam a rede mais robusta a más inicializações.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10: TRANSFORMER LAYER DIAGRAM -->
+  <section class="slide">
+    <div class="eyebrow">12.4 · Transformer layers</div>
+    <h1 class="slide-title">A camada completa, peça por peça</h1>
+    <p class="slide-sub">Self-attention é só uma parte. A camada transformer soma multi-head attention e uma rede totalmente conectada (aplicada a cada token separadamente), cada uma como bloco residual, com LayerNorm depois de cada uma (Fig. 12.7).</p>
+    <div class="content">
+      <div class="tlayer-wrap">
+        <div class="tlayer-box">Input X</div>
+        <div class="tlayer-side"><div class="plus">+</div>residual</div>
+        <div class="tlayer-box residual">Multi-Head Self-Attention</div>
+        <div class="tlayer-arrow">↓</div>
+        <div class="tlayer-box norm">LayerNorm</div>
+        <div class="tlayer-side"><div class="plus">+</div>residual</div>
+        <div class="tlayer-box residual">mlp[x_n] — aplicada a cada token</div>
+        <div class="tlayer-arrow">↓</div>
+        <div class="tlayer-box norm">LayerNorm</div>
+        <div class="tlayer-arrow">↓</div>
+        <div class="tlayer-box">Output X</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11: EQ 12.13 -->
+  <section class="slide">
+    <div class="eyebrow">12.4 · Transformer layers</div>
+    <h1 class="slide-title">A camada completa, em quatro linhas</h1>
+    <p class="slide-sub">LayerNorm normaliza cada embedding usando estatísticas calculadas ao longo das suas próprias $D$ dimensões — diferente de BatchNorm, que usa estatísticas do batch.</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div class="eqtag">EQ. 12.13</div>
+        <div>$$\mathbf{X} \leftarrow \mathbf{X} + \text{MhSa}[\mathbf{X}]$$</div>
+        <div>$$\mathbf{X} \leftarrow \text{LayerNorm}[\mathbf{X}]$$</div>
+        <div>$$\mathbf{x}_n \leftarrow \mathbf{x}_n + \text{mlp}[\mathbf{x}_n] \qquad \forall\, n \in \{1,\dots,N\}$$</div>
+        <div>$$\mathbf{X} \leftarrow \text{LayerNorm}[\mathbf{X}]$$</div>
+        <div class="cap">Os vetores-coluna $\mathbf{x}_n$ são tomados separadamente da matriz completa $\mathbf{X}$ para a etapa do mlp — a mesma rede é aplicada a cada token, independentemente. Numa rede real, os dados passam por uma <b>série</b> dessas camadas.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12: RECAP CHAIN -->
+  <section class="slide">
+    <div class="eyebrow">Recapitulando</div>
+    <h1 class="slide-title">A cadeia completa, eq. 12.9 → 12.13</h1>
+    <p class="slide-sub">De self-attention puro até um bloco pronto para empilhar N vezes.</p>
+    <div class="content">
+      <div class="eq-chain">
+        <div class="eq-chain-item"><span class="eqtag">12.9</span><span class="eqform">$\text{Sa}[\mathbf{X}] = \mathbf{V}\cdot\text{Softmax}[\mathbf{K}^T\mathbf{Q}/\sqrt{D_q}]$</span><span class="eqlabel">scaled dot-product</span></div>
+        <div class="eq-chain-item"><span class="eqtag">12.10</span><span class="eqform">$\mathbf{V}_h,\mathbf{Q}_h,\mathbf{K}_h$ — parâmetros por head</span><span class="eqlabel">setup multi-head</span></div>
+        <div class="eq-chain-item"><span class="eqtag">12.11</span><span class="eqform">$\text{Sa}_h[\mathbf{X}] = \mathbf{V}_h\cdot\text{Softmax}[\mathbf{K}_h^T\mathbf{Q}_h/\sqrt{D_q}]$</span><span class="eqlabel">attention por head</span></div>
+        <div class="eq-chain-item"><span class="eqtag">12.12</span><span class="eqform">$\text{MhSa}[\mathbf{X}] = \boldsymbol{\Omega}_c[\text{Sa}_1[\mathbf{X}]^T,\dots,\text{Sa}_H[\mathbf{X}]^T]^T$</span><span class="eqlabel">concatenar heads</span></div>
+        <div class="eq-chain-item"><span class="eqtag">12.13</span><span class="eqform">$\mathbf{X}\!\leftarrow\!\mathbf{X}\!+\!\text{MhSa}[\mathbf{X}];\ \text{LayerNorm};\ +\text{mlp};\ \text{LayerNorm}$</span><span class="eqlabel">camada completa</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13: CLOSING -->
+  <section class="slide">
+    <div class="eyebrow">Fechamento</div>
+    <h1 class="slide-title">O que fica de pé até aqui</h1>
+    <div class="content">
+      <div class="card" style="max-width:720px; margin-bottom:16px;">
+        <p style="color:var(--ink-dim); font-size:14px; line-height:1.75; margin:0;">Temos agora um bloco transformer completo: positional encoding devolve a noção de ordem, scaled dot-product evita a saturação do softmax, multi-head permite capturar diferentes tipos de relação em paralelo, e a camada com resíduos + LayerNorm é estável o suficiente para empilhar muitas vezes.</p>
+      </div>
+      <div class="card" style="max-width:720px; border-color: var(--peri);">
+        <p style="color:var(--ink-dim); font-size:13px; line-height:1.7; margin:0;">Ficou de fora, de propósito: como esse bloco se encaixa num <b style="color:var(--ink)">pipeline de NLP completo</b> — tokenização, embeddings e os três tipos de modelo (encoder, decoder, encoder-decoder) que o resto do capítulo constrói em cima disso.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="credit">GRUPO DE ESTUDOS · TRANSFORMERS — AULA 2 · UDL CAP. 12 (PRINCE)</div>
+    <div class="attn-row" id="attnRow"></div>
+    <div class="navbtns">
+      <button class="navbtn" id="prevBtn">← anterior</button>
+      <button class="navbtn" id="nextBtn">próximo →</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+  // ----- render all math on the page -----
+  document.addEventListener('DOMContentLoaded', function() {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false }
+        ],
+        throwOnError: false
+      });
+    }
+  });
+
+  // ----- slide navigation -----
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  const attnRow = document.getElementById('attnRow');
+  for (let i = 0; i < total; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'attn-cell';
+    cell.addEventListener('click', () => goTo(i));
+    attnRow.appendChild(cell);
+  }
+  const cells = attnRow.querySelectorAll('.attn-cell');
+
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle('active', i === current));
+    cells.forEach((c, i) => {
+      c.classList.toggle('now', i === current);
+      c.classList.toggle('past', i < current);
+    });
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').disabled = current === total - 1;
+  }
+  function goTo(i) { current = Math.max(0, Math.min(total - 1, i)); render(); }
+
+  document.getElementById('prevBtn').addEventListener('click', () => goTo(current - 1));
+  document.getElementById('nextBtn').addEventListener('click', () => goTo(current + 1));
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') goTo(current + 1);
+    if (e.key === 'ArrowLeft') goTo(current - 1);
+  });
+
+  const gridHero = document.getElementById('gridHero');
+  for (let i = 0; i < 36; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.animationDelay = (Math.random() * 3.6).toFixed(2) + 's';
+    gridHero.appendChild(cell);
+  }
+
+  render();
+</script>
+</body>
+</html>
