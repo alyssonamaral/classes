@@ -188,30 +188,6 @@
   .param-chip { font-family: var(--font-mono); font-size: 14px; color: var(--ink-dim); }
   .param-chip b { color: var(--peri); }
 
-  /* ===== SENTENCE WINDOWS (relative positional encoding) ===== */
-  .tok-windows-row { display: flex; gap: 46px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
-  .tok-window { display: flex; flex-direction: column; align-items: center; }
-  .tok-row { display: flex; align-items: flex-end; }
-  .tok-chip { display: flex; flex-direction: column; align-items: center; }
-  .tok-word { font-family: var(--font-mono); font-size: 17px; padding: 10px 16px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
-  .tok-idx { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); margin-top: 7px; }
-  .tok-gap { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 0 10px 26px; gap: 3px; }
-  .tok-gap .dist { font-family: var(--font-mono); font-size: 13px; color: var(--amber); }
-  .tok-gap .arrow { color: var(--ink-faint); font-size: 14px; }
-  .tok-window-label { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); margin-top: 14px; }
-
-  /* ===== OFFSET GRID (relative positional encoding) ===== */
-  .offgrid-wrap { display: flex; justify-content: center; }
-  .offgrid-block { display: flex; flex-direction: column; align-items: center; }
-  .offgrid-row-wrap { display: flex; }
-  .offgrid-axis-y { display: flex; flex-direction: column; gap: 4px; justify-content: flex-end; }
-  .offgrid-axis-y span { height: 52px; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); }
-  .offgrid { display: inline-grid; gap: 4px; }
-  .offgrid-cell { width: 60px; height: 52px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 16px; border-radius: 5px; }
-  .offgrid-axis-x { display: grid; gap: 4px; margin-top: 6px; margin-left: 66px; }
-  .offgrid-axis-x span { width: 60px; text-align: center; font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); }
-  .offgrid-cap { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); text-align: center; margin-top: 14px; }
-
   @media (max-width: 1000px) {
     .slide { padding: 30px 20px 100px; }
     h1.slide-title, .hero-text h1 { font-size: 28px; }
@@ -315,30 +291,6 @@
       <div class="card" style="max-width:760px; margin-top:14px;">
         <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0;">Captura algo como <i>"a palavra três posições atrás"</i>, em vez de <i>"a palavra na posição 7"</i> — mais robusto quando o mesmo texto pode ser fatiado em janelas diferentes.</p>
       </div>
-    </div>
-  </section>
-
-  <!-- 4b: GUAXINIM RELATIVE EXAMPLE -->
-  <section class="slide">
-    <div class="eyebrow">12.3.1 · Relative positional encodings</div>
-    <h1 class="slide-title">A mesma frase, em janelas diferentes</h1>
-    <p class="slide-sub">Volte à frase do início da aula: <i>"A mulher comeu o guaxinim."</i> O que carrega o significado é a ordem relativa entre as palavras — e essa relação não muda se a frase aparece perto do início ou no meio de um documento longo.</p>
-    <div class="content">
-      <div class="tok-windows-row" id="tokWindowsRow"></div>
-      <div class="card" style="max-width:900px; margin:26px auto 0;">
-        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0;">Um encoding <b style="color:var(--ink)">absoluto</b> daria à "mulher" da janela A e à "mulher" da janela B duas marcas totalmente diferentes — o modelo teria que reaprender o mesmo padrão em cada faixa de posições. Um encoding <b style="color:var(--peri)">relativo</b> só enxerga a distância <b>+1</b> nos dois casos — o mesmo $\pi_1$ aprendido serve para o documento inteiro.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 4c: N=6 OFFSET MATRIX -->
-  <section class="slide">
-    <div class="eyebrow">12.3.1 · Relative positional encodings</div>
-    <h1 class="slide-title">A matriz de atenção, colorida por deslocamento</h1>
-    <p class="slide-sub">Cada célula $\mathbf{A}_{m,n}$ recebe $\pi_{m-n}$ — e como o valor só depende da diferença $m-n$, toda a diagonal compartilha o mesmo número.</p>
-    <div class="content">
-      <div class="offgrid-wrap" id="offgridWrap"></div>
-      <div class="offgrid-cap">$m$ = posição da query (linha) · $n$ = posição da key (coluna) · mesma cor = mesma diagonal = mesmo $\pi_{m-n}$</div>
     </div>
   </section>
 
@@ -555,115 +507,6 @@
   }
 
   render();
-
-  // ----- relative positional encoding visuals (slides 4b/4c) -----
-  (function () {
-    function hexToRgb(hex) {
-      hex = hex.replace('#', '');
-      if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-      const num = parseInt(hex, 16);
-      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
-    }
-    function rgbToHex(r, g, b) {
-      return '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
-    }
-    function mix(c1, c2, t) { return [c1[0] + (c2[0] - c1[0]) * t, c1[1] + (c2[1] - c1[1]) * t, c1[2] + (c2[2] - c1[2]) * t]; }
-    function divergingColor(v, negHex, midHex, posHex) {
-      const neg = hexToRgb(negHex), mid = hexToRgb(midHex), pos = hexToRgb(posHex);
-      const t = Math.max(-1, Math.min(1, v));
-      const rgb = t < 0 ? mix(mid, neg, -t) : mix(mid, pos, t);
-      return rgbToHex(rgb[0], rgb[1], rgb[2]);
-    }
-    function textColorFor(t) { return Math.abs(t) > 0.35 ? '#FFFFFF' : '#21242C'; }
-
-    function buildOffsetGrid() {
-      const wrap = document.getElementById('offgridWrap');
-      if (!wrap) return;
-      const n = 6, cellSize = 60;
-      const negHex = '#3548B4', midHex = '#EEE9DD', posHex = '#A85F00';
-
-      const block = document.createElement('div');
-      block.className = 'offgrid-block';
-      const row = document.createElement('div');
-      row.className = 'offgrid-row-wrap';
-
-      const axisY = document.createElement('div');
-      axisY.className = 'offgrid-axis-y';
-      for (let m = 0; m < n; m++) {
-        const s = document.createElement('span');
-        s.textContent = 'm=' + m;
-        axisY.appendChild(s);
-      }
-      row.appendChild(axisY);
-
-      const grid = document.createElement('div');
-      grid.className = 'offgrid';
-      grid.style.gridTemplateColumns = 'repeat(' + n + ', ' + cellSize + 'px)';
-      for (let m = 0; m < n; m++) {
-        for (let k = 0; k < n; k++) {
-          const a = m - k;
-          const t = a / (n - 1);
-          const cell = document.createElement('div');
-          cell.className = 'offgrid-cell';
-          cell.style.background = divergingColor(t, negHex, midHex, posHex);
-          cell.style.color = textColorFor(t);
-          cell.textContent = (a > 0 ? '+' : '') + a;
-          grid.appendChild(cell);
-        }
-      }
-      row.appendChild(grid);
-      block.appendChild(row);
-
-      const axisX = document.createElement('div');
-      axisX.className = 'offgrid-axis-x';
-      axisX.style.gridTemplateColumns = 'repeat(' + n + ', ' + cellSize + 'px)';
-      for (let k = 0; k < n; k++) {
-        const s = document.createElement('span');
-        s.textContent = 'n=' + k;
-        axisX.appendChild(s);
-      }
-      block.appendChild(axisX);
-
-      wrap.appendChild(block);
-    }
-
-    function buildTokWindows() {
-      const wrap = document.getElementById('tokWindowsRow');
-      if (!wrap) return;
-      const words = ['A', 'mulher', 'comeu', 'guaxinim'];
-      const wins = [
-        { label: 'Janela A · posições 5–8', start: 5 },
-        { label: 'Janela B · posições 205–208', start: 205 }
-      ];
-      wins.forEach(function (win) {
-        const block = document.createElement('div');
-        block.className = 'tok-window';
-        const row = document.createElement('div');
-        row.className = 'tok-row';
-        words.forEach(function (w, idx) {
-          const chip = document.createElement('div');
-          chip.className = 'tok-chip';
-          chip.innerHTML = '<span class="tok-word">' + w + '</span><span class="tok-idx">n=' + (win.start + idx) + '</span>';
-          row.appendChild(chip);
-          if (idx < words.length - 1) {
-            const gap = document.createElement('div');
-            gap.className = 'tok-gap';
-            gap.innerHTML = '<span class="dist">+1</span><span class="arrow">→</span>';
-            row.appendChild(gap);
-          }
-        });
-        block.appendChild(row);
-        const label = document.createElement('div');
-        label.className = 'tok-window-label';
-        label.textContent = win.label;
-        block.appendChild(label);
-        wrap.appendChild(block);
-      });
-    }
-
-    buildOffsetGrid();
-    buildTokWindows();
-  })();
 </script>
 </body>
 </html>
