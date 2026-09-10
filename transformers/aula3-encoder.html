@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aula 3 — Modelos Encoder (BERT)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+  :root {
+    --bg: #F8F5EE;
+    --panel: #FFFFFF;
+    --panel-2: #EEE9DD;
+    --line: rgba(53,72,180,0.18);
+    --line-soft: rgba(30,30,35,0.09);
+    --ink: #21242C;
+    --ink-dim: #4E5468;
+    --ink-faint: #7A7F94;
+    --amber: #A85F00;
+    --amber-dim: rgba(168,95,0,0.35);
+    --amber-bg: rgba(168,95,0,0.10);
+    --peri: #3548B4;
+    --peri-dim: rgba(53,72,180,0.30);
+    --value-green: #1F8A4C;
+    --value-green-dim: rgba(31,138,76,0.4);
+    --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  * { font-weight: 700 !important; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    overflow: hidden;
+    height: 100%;
+  }
+
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size: 42px 42px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .deck { position: relative; width: 100vw; height: 100vh; z-index: 1; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    padding: 40px 64px 88px;
+    opacity: 0; transform: translateY(14px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    pointer-events: none; overflow: hidden;
+  }
+  .slide.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 16px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--amber); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .eyebrow::before { content: ""; width: 18px; height: 1px; background: var(--amber); display: inline-block; }
+
+  h1.slide-title {
+    font-family: var(--font-display); font-size: 44px; line-height: 1.15;
+    margin: 0 0 10px 0; color: var(--ink); max-width: 1000px; flex-shrink: 0;
+  }
+  h1.slide-title em { font-style: normal; color: var(--peri); }
+  .slide-sub {
+    font-size: 19px; color: var(--ink-dim); margin: 0 0 22px 0; max-width: 920px;
+    line-height: 1.55; flex-shrink: 0;
+  }
+  .content { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+
+  .footer {
+    position: absolute; left: 64px; right: 64px; bottom: 20px;
+    display: flex; align-items: center; justify-content: space-between; z-index: 5;
+  }
+  .credit { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); letter-spacing: 0.03em; }
+  .attn-row { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; max-width: 46vw; }
+  .attn-cell {
+    width: 13px; height: 13px; border-radius: 2px; background: var(--panel-2);
+    border: 1px solid var(--line); cursor: pointer; transition: background 0.2s, border-color 0.2s;
+  }
+  .attn-cell.past { background: var(--peri-dim); border-color: var(--peri); }
+  .attn-cell.now { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 10px var(--amber-dim); }
+  .navbtns { display: flex; gap: 8px; }
+  .navbtn {
+    font-family: var(--font-mono); font-size: 14px; color: var(--ink-dim); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 6px 12px; cursor: pointer;
+  }
+  .navbtn:hover { color: var(--ink); border-color: var(--peri); }
+  .navbtn:disabled { opacity: 0.3; cursor: default; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(30,30,35,0.06); }
+  .tag { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--peri); }
+
+  /* ===== TITLE ===== */
+  .title-slide { justify-content: center; padding-top: 0; }
+  .title-slide .content { justify-content: center; }
+  .hero-row { display: flex; align-items: center; gap: 50px; }
+  .hero-text { max-width: 660px; }
+  .hero-text .kicker { font-family: var(--font-mono); color: var(--amber); font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 18px; }
+  .hero-text h1 { font-family: var(--font-display); font-size: 56px; line-height: 1.1; margin: 0 0 18px 0; }
+  .hero-text h1 .accent { color: var(--peri); }
+  .hero-text p { color: var(--ink-dim); font-size: 20px; line-height: 1.6; margin: 0 0 24px 0; }
+  .hero-meta { font-family: var(--font-mono); font-size: 14px; color: var(--ink-faint); display: flex; gap: 20px; flex-wrap: wrap; }
+  .grid-hero { display: grid; grid-template-columns: repeat(6, 26px); grid-template-rows: repeat(6, 26px); gap: 5px; flex-shrink: 0; }
+  .grid-hero .cell { width: 26px; height: 26px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--line); animation: pulse 3.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { background: var(--panel-2); } 50% { background: var(--amber-dim); } }
+
+  /* ===== AGENDA ===== */
+  .agenda-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
+  .agenda-list { display: flex; flex-direction: column; gap: 0; }
+  .agenda-item { display: flex; align-items: baseline; gap: 14px; padding: 10px 4px; border-bottom: 1px solid var(--line-soft); }
+  .agenda-item .idx { font-family: var(--font-mono); color: var(--ink-faint); font-size: 15px; width: 52px; }
+  .agenda-item .label { font-size: 19px; color: var(--ink); font-family: var(--font-display); }
+  .agenda-item .note { margin-left: auto; font-size: 13px; color: var(--ink-faint); font-family: var(--font-mono); text-align: right; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  .problem-list { display: flex; flex-direction: column; gap: 10px; }
+  .problem-item { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; }
+  .problem-item .mark { color: var(--amber); font-family: var(--font-mono); font-size: 16px; margin-top: 1px; }
+  .problem-item .txt { color: var(--ink-dim); font-size: 16px; line-height: 1.6; }
+  .problem-item .txt b { color: var(--ink); }
+
+  .quote-block { border-left: 2px solid var(--amber); padding-left: 18px; margin: 4px 0 20px 0; }
+  .quote-block .q { font-family: var(--font-display); font-size: 22px; color: var(--ink); line-height: 1.5; font-style: italic; }
+  .quote-block .src { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); margin-top: 8px; }
+
+  /* ===== FORMULA CARD (KaTeX) ===== */
+  .formula-card { text-align: center; padding: 26px 30px; }
+  .formula-card .katex { font-size: 1.5em !important; color: var(--ink); }
+  .formula-card .katex-display { margin: 6px 0; }
+  .formula-card .cap { margin-top: 16px; font-size: 16px; color: var(--ink-faint); line-height: 1.6; }
+  .formula-card .eqtag { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); letter-spacing: 0.06em; margin-bottom: 10px; }
+  .formula-stack { display: flex; flex-direction: column; gap: 12px; }
+
+  /* ===== SENTENCE / TOKEN CHIPS (reused for masked-LM, sequences) ===== */
+  .tok-windows-row { display: flex; gap: 46px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
+  .tok-window { display: flex; flex-direction: column; align-items: center; }
+  .tok-row { display: flex; align-items: flex-end; flex-wrap: wrap; justify-content: center; gap: 0; }
+  .tok-chip { display: flex; flex-direction: column; align-items: center; }
+  .tok-word { font-family: var(--font-mono); font-size: 17px; padding: 10px 16px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
+  .tok-word.cls { border-color: var(--peri); color: var(--peri); background: var(--peri-dim); }
+  .tok-word.masked { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); border-style: dashed; }
+  .tok-idx { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); margin-top: 7px; }
+  .tok-gap { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 0 8px 26px; gap: 3px; }
+  .tok-gap .dist { font-family: var(--font-mono); font-size: 13px; color: var(--amber); }
+  .tok-gap .arrow { color: var(--ink-faint); font-size: 14px; }
+  .tok-window-label { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); margin-top: 14px; }
+
+  /* ===== ROUTE CHIPS ===== */
+  .route-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 16px; }
+  .route-chip { font-family: var(--font-mono); font-size: 15px; padding: 8px 13px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-dim); }
+  .route-chip.tgt { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+
+  /* ===== GENERIC BOX-PIPELINE DIAGRAM (transformer stack / fine-tune heads) ===== */
+  .tlayer-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0 10px; }
+  .tlayer-box {
+    width: 420px; text-align: center; font-family: var(--font-mono); font-size: 15px;
+    padding: 13px 16px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink);
+  }
+  .tlayer-box.op { background: var(--panel-2); color: var(--ink-dim); font-size: 13px; border-style: dashed; }
+  .tlayer-box.residual { border-color: var(--peri); color: var(--peri); }
+  .tlayer-box.norm { border-color: var(--amber); color: var(--amber); }
+  .tlayer-box.stack { border-color: var(--peri); color: var(--peri); background: var(--peri-dim); position: relative; }
+  .tlayer-arrow { color: var(--ink-faint); font-size: 15px; line-height: 1; margin: 1px 0; }
+  .tlayer-side {
+    display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 13px;
+    color: var(--ink-faint); margin: 2px 0;
+  }
+  .tlayer-side .plus { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--peri); color: var(--peri); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .stack-repeat-tag {
+    position: absolute; right: -86px; top: 50%; transform: translateY(-50%);
+    font-family: var(--font-mono); font-size: 14px; color: var(--peri); white-space: nowrap;
+  }
+
+  /* ===== RECAP CHAIN ===== */
+  .eq-chain { display: flex; flex-direction: column; gap: 0; max-width: 980px; margin: 0 auto; }
+  .eq-chain-item { display: flex; align-items: center; gap: 18px; padding: 11px 4px; border-bottom: 1px solid var(--line-soft); }
+  .eq-chain-item .eqtag { font-family: var(--font-mono); font-size: 14px; color: var(--peri); width: 60px; flex-shrink: 0; }
+  .eq-chain-item .eqform { flex: 1; }
+  .eq-chain-item .eqform .katex { font-size: 1.1em !important; }
+  .eq-chain-item .eqlabel { font-size: 13px; color: var(--ink-faint); font-family: var(--font-mono); text-align: right; width: 240px; flex-shrink: 0; }
+
+  .param-row { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; justify-content: center; }
+  .param-chip { font-family: var(--font-mono); font-size: 14px; color: var(--ink-dim); }
+  .param-chip b { color: var(--peri); }
+
+  /* ===== INTERACTION MATRIX (encoder = full bidirectional) ===== */
+  .imatrix-wrap { display: flex; justify-content: center; }
+  .imatrix-block { display: flex; flex-direction: column; align-items: center; }
+  .imatrix-row-wrap { display: flex; }
+  .imatrix-axis-y { display: flex; flex-direction: column; gap: 4px; justify-content: flex-end; }
+  .imatrix-axis-y span { height: 40px; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .imatrix { display: inline-grid; gap: 4px; }
+  .imatrix-cell { width: 40px; height: 40px; border-radius: 5px; }
+  .imatrix-cell.on { background: var(--peri); }
+  .imatrix-cell.off { background: var(--panel-2); border: 1px solid var(--line); }
+  .imatrix-axis-x { display: grid; gap: 4px; margin-top: 6px; margin-left: 50px; }
+  .imatrix-axis-x span { width: 40px; text-align: center; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .imatrix-cap { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); text-align: center; margin-top: 14px; }
+
+  /* ===== FINE-TUNE HEAD DIAGRAM ===== */
+  .head-diagram { display: flex; align-items: center; justify-content: center; gap: 18px; flex-wrap: wrap; margin: 8px 0 4px; }
+  .head-box { font-family: var(--font-mono); font-size: 15px; padding: 14px 20px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-align: center; }
+  .head-box.enc { border-color: var(--peri); color: var(--peri); background: var(--peri-dim); }
+  .head-box.out { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+  .head-arrow { color: var(--ink-faint); font-size: 20px; }
+
+  @media (max-width: 1000px) {
+    .slide { padding: 30px 20px 100px; }
+    h1.slide-title, .hero-text h1 { font-size: 28px; }
+    .three-col, .two-col, .agenda-cols { grid-template-columns: 1fr; }
+    .hero-row { flex-direction: column; }
+    .footer { left: 20px; right: 20px; }
+    .attn-row { max-width: 60vw; }
+    .eq-chain-item { flex-wrap: wrap; }
+    .tlayer-box { width: 260px; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 0: TITLE -->
+  <section class="slide title-slide active">
+    <div class="content">
+      <div class="hero-row">
+        <div class="hero-text">
+          <div class="kicker">Grupo de Estudos · Deep Learning Teórico</div>
+          <h1>Aula 3<br>Modelos <span class="accent">Encoder</span> — o caso BERT</h1>
+          <p>Do bloco transformer genérico a um modelo completo: como empilhar camadas, pré-treinar sem rótulos, e depois especializar (fine-tuning) para tarefas concretas de NLP.</p>
+          <div class="hero-meta">
+            <span>UDL CAP. 12 · PRINCE</span>
+            <span>SEÇÕES 12.5.3 – 12.6</span>
+          </div>
+        </div>
+        <div class="grid-hero" id="gridHero"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1: AGENDA -->
+  <section class="slide">
+    <div class="eyebrow">Roteiro</div>
+    <h1 class="slide-title">Da camada ao modelo encoder</h1>
+    <p class="slide-sub">Já conhecemos a camada transformer inteira (eq. 12.13). Hoje empilhamos K delas e olhamos para o primeiro dos três "tipos" de modelo: o encoder.</p>
+    <div class="content">
+      <div class="agenda-cols">
+        <div class="agenda-list">
+          <div class="agenda-item"><span class="idx">12.5.3</span><span class="label">Três tipos de modelo</span><span class="note">encoder · decoder · enc-dec</span></div>
+          <div class="agenda-item"><span class="idx">→</span><span class="label">Interação encoder</span><span class="note">todos com todos</span></div>
+          <div class="agenda-item"><span class="idx">12.6</span><span class="label">BERT</span><span class="note">arquitetura & escala</span></div>
+        </div>
+        <div class="agenda-list">
+          <div class="agenda-item"><span class="idx">12.6.1</span><span class="label">Pré-treinamento</span><span class="note">masked language modeling</span></div>
+          <div class="agenda-item"><span class="idx">12.6.2</span><span class="label">Fine-tuning</span><span class="note">classificação, NER, QA</span></div>
+          <div class="agenda-item"><span class="idx">→</span><span class="label">Fechamento</span><span class="note">ponte para a Aula 4</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2: 12.5.3 THREE TYPES -->
+  <section class="slide">
+    <div class="eyebrow">12.5.3 · Transformer model</div>
+    <h1 class="slide-title">Três formas de usar as mesmas camadas</h1>
+    <p class="slide-sub">Tokenização e embeddings (aula 1) produzem a matriz $\mathbf{X}$. Ela passa por uma série de $K$ camadas transformer — chamada de <i>transformer model</i>. O que muda entre os três tipos é <b style="color:var(--ink)">como as camadas atendem umas às outras</b> e <b style="color:var(--ink)">o que se faz com a saída</b>.</p>
+    <div class="content">
+      <div class="three-col">
+        <div class="card" style="border-color:var(--peri);">
+          <div class="tag" style="color:var(--peri);">Encoder</div>
+          <p style="color:var(--ink-dim); font-size:16px; line-height:1.65; margin:10px 0 0 0;">Transforma o texto numa representação rica, reaproveitável em várias tarefas. Todo token atende a todo token.</p>
+        </div>
+        <div class="card">
+          <div class="tag">Decoder</div>
+          <p style="color:var(--ink-dim); font-size:16px; line-height:1.65; margin:10px 0 0 0;">Prevê o próximo token da sequência. Cada token só atende a si mesmo e aos anteriores. Assunto da <b style="color:var(--ink)">Aula 4</b>.</p>
+        </div>
+        <div class="card">
+          <div class="tag">Encoder-decoder</div>
+          <p style="color:var(--ink-dim); font-size:16px; line-height:1.65; margin:10px 0 0 0;">Combina os dois para tarefas sequência→sequência, como tradução. Também na <b style="color:var(--ink)">Aula 4</b>.</p>
+        </div>
+      </div>
+      <div class="card" style="max-width:900px; margin:20px auto 0; border-color:var(--amber);">
+        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0;">Hoje: <b style="color:var(--ink)">encoder</b>, usando <b style="color:var(--ink)">BERT</b> como exemplo concreto (seção 12.6).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3: GENERIC STACK DIAGRAM -->
+  <section class="slide">
+    <div class="eyebrow">12.5.3 · Transformer model</div>
+    <h1 class="slide-title">Empilhando K camadas</h1>
+    <p class="slide-sub">Lembre-se: cada camada preserva a forma $D \times N$ da entrada — é exatamente isso que permite empilhar quantas quisermos, uma alimentando a próxima.</p>
+    <div class="content">
+      <div class="tlayer-wrap">
+        <div class="tlayer-box">Embeddings de entrada X <span style="color:var(--ink-faint);">(D×N)</span></div>
+        <div class="tlayer-arrow">↓</div>
+        <div class="tlayer-box stack">Camada transformer (eq. 12.13)
+          <span class="stack-repeat-tag">× K</span>
+        </div>
+        <div class="tlayer-arrow">↓</div>
+        <div class="tlayer-box">Embeddings de saída <span style="color:var(--ink-faint);">(D×N)</span></div>
+      </div>
+      <div class="param-row">
+        <span class="param-chip">BERT: <b>K = 24</b> camadas</span>
+        <span class="param-chip">GPT3: <b>K = 96</b> camadas</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4: INTERACTION MATRIX - ENCODER FULL -->
+  <section class="slide">
+    <div class="eyebrow">Encoder · matriz de interação</div>
+    <h1 class="slide-title">Todo token conversa com todo token</h1>
+    <p class="slide-sub">Num encoder, a self-attention é aplicada sem nenhuma restrição: cada posição pode atender a qualquer outra posição da sequência — inclusive as que vêm depois dela (contexto bidirecional).</p>
+    <div class="content">
+      <div class="imatrix-wrap" id="imatrixEncoder"></div>
+      <div class="imatrix-cap">linha = posição que consulta (query) · coluna = posição consultada (key) · célula azul = atenção permitida</div>
+    </div>
+  </section>
+
+  <!-- 5: BERT SCALE -->
+  <section class="slide">
+    <div class="eyebrow">12.6 · Encoder model example: BERT</div>
+    <h1 class="slide-title">BERT em números</h1>
+    <p class="slide-sub">BERT é um encoder concreto — um exemplo de tamanho real das quantidades que vimos nas aulas anteriores.</p>
+    <div class="content">
+      <div class="three-col">
+        <div class="card"><div class="tag">Vocabulário & embeddings</div><p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:10px 0 0 0;"><b style="color:var(--ink)">30.000</b> tokens no vocabulário, cada um convertido num embedding de dimensão <b style="color:var(--ink)">D = 1024</b>.</p></div>
+        <div class="card"><div class="tag">Camadas & heads</div><p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:10px 0 0 0;"><b style="color:var(--ink)">24</b> camadas transformer, cada uma com self-attention de <b style="color:var(--ink)">16 heads</b>.</p></div>
+        <div class="card"><div class="tag">Dimensões internas</div><p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:10px 0 0 0;">$\Omega_{vh},\Omega_{qh},\Omega_{kh}$ são <b style="color:var(--ink)">64×1024</b> (D/H = 1024/16 = 64). MLP com camada oculta de <b style="color:var(--ink)">4096</b>.</p></div>
+      </div>
+      <div class="card" style="max-width:760px; margin:20px auto 0;">
+        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0; text-align:center;">Total: <b style="color:var(--peri)">~340 milhões</b> de parâmetros — enorme quando o BERT foi lançado (2018), pequeno perto dos modelos de hoje.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6: PRE-TRAINING TASK - MASKED LM -->
+  <section class="slide">
+    <div class="eyebrow">12.6.1 · Pré-treinamento</div>
+    <h1 class="slide-title">Aprender sem rótulos: prever a palavra escondida</h1>
+    <p class="slide-sub">A auto-supervisão do BERT: substituir aleatoriamente algumas palavras por um token genérico <b style="color:var(--amber)">&lt;mask&gt;</b> e pedir ao modelo que recupere a palavra original a partir do embedding de saída daquela posição.</p>
+    <div class="content">
+      <div class="tok-windows-row" style="gap:0;">
+        <div class="tok-window">
+          <div class="tok-row" id="maskedSentence"></div>
+        </div>
+      </div>
+      <div class="card" style="max-width:860px; margin:26px auto 0;">
+        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0;">O embedding de saída na posição do <b style="color:var(--amber)">&lt;mask&gt;</b> passa por um softmax sobre o vocabulário inteiro — perda de classificação multiclasse, exatamente como a predição do próximo token que veremos no decoder, mas aqui o modelo pode olhar <b style="color:var(--ink)">para os dois lados</b> (contexto esquerdo e direito).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7: PRE-TRAINING DETAILS -->
+  <section class="slide">
+    <div class="eyebrow">12.6.1 · Pré-treinamento</div>
+    <h1 class="slide-title">A escala do pré-treinamento</h1>
+    <p class="slide-sub">A auto-supervisão permite usar quantidades enormes de texto não rotulado — o "custo" é que cada token processado só contribui para a perda ocasionalmente.</p>
+    <div class="content">
+      <div class="three-col">
+        <div class="card"><div class="tag">Dados & sequência</div><p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:10px 0 0 0;">Máx. <b style="color:var(--ink)">512</b> tokens por entrada · corpus de <b style="color:var(--ink)">3.3 bilhões</b> de palavras.</p></div>
+        <div class="card"><div class="tag">Treinamento</div><p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:10px 0 0 0;">Batch de <b style="color:var(--ink)">256</b> · <b style="color:var(--ink)">1 milhão</b> de passos · ≈ <b style="color:var(--ink)">50 épocas</b>.</p></div>
+        <div class="card"><div class="tag">Tarefa secundária</div><p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:10px 0 0 0;">Classificar se duas frases eram adjacentes no texto original — ganho apenas marginal.</p></div>
+      </div>
+      <div class="card" style="max-width:820px; margin:20px auto 0; border-color:var(--amber);">
+        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0;">Ineficiência de dados: são necessários <b style="color:var(--ink)">7 tokens processados</b> para gerar apenas <b style="color:var(--ink)">2 termos</b> na função de perda (só as posições mascaradas contam) — ao contrário do decoder, onde <i>toda</i> posição contribui.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8: WHAT IT LEARNS -->
+  <section class="slide">
+    <div class="eyebrow">12.6.1 · Pré-treinamento</div>
+    <h1 class="slide-title">O que prever palavras ausentes ensina</h1>
+    <p class="slide-sub">Para prever bem a palavra escondida, o modelo é forçado a absorver regularidades de sintaxe e algum "senso comum" superficial sobre o mundo.</p>
+    <div class="content">
+      <div class="quote-block">
+        <div class="q">O <span style="color:var(--amber);">&lt;mask&gt;</span> entrou na estação.</div>
+        <div class="src">P(trem | contexto) &gt;&gt; P(amendoim | contexto)</div>
+      </div>
+      <div class="card" style="max-width:820px;">
+        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0;">Também aprende regularidades sintáticas — por exemplo, que o adjetivo <i>vermelho</i> aparece com frequência antes de substantivos como <i>casa</i> ou <i>carro</i>, mas nunca antes de um verbo como <i>gritar</i>. Ainda assim, o quanto esse tipo de modelo realmente "entende" o mundo é limitado.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9: FINE-TUNING GENERAL IDEA -->
+  <section class="slide">
+    <div class="eyebrow">12.6.2 · Fine-tuning</div>
+    <h1 class="slide-title">Especializar um modelo genérico</h1>
+    <p class="slide-sub">Depois do pré-treinamento, os mesmos pesos são reaproveitados (transfer learning): acrescenta-se uma camada extra — linear ou um pequeno MLP — para converter os embeddings de saída no formato da tarefa desejada, e ajusta-se tudo com um conjunto de dados rotulado, bem menor.</p>
+    <div class="content">
+      <div class="head-diagram">
+        <div class="head-box enc">Encoder pré-treinado<br><span style="font-size:12px; color:var(--ink-faint);">pesos gerais de linguagem</span></div>
+        <div class="head-arrow">→</div>
+        <div class="head-box out">Camada de tarefa<br><span style="font-size:12px; color:var(--ink-faint);">linear / MLP + softmax ou sigmoid</span></div>
+      </div>
+      <div class="card" style="max-width:780px; margin:20px auto 0;">
+        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0; text-align:center;">Os três exemplos a seguir mostram a mesma ideia aplicada a três formatos de saída diferentes.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10: FINE-TUNE - TEXT CLASSIFICATION -->
+  <section class="slide">
+    <div class="eyebrow">12.6.2 · Fine-tuning</div>
+    <h1 class="slide-title">Classificação de texto: o token &lt;cls&gt;</h1>
+    <p class="slide-sub">Um token especial <b style="color:var(--peri)">&lt;cls&gt;</b> é colocado no início de cada sequência (já durante o pré-treinamento). Para classificar a sequência inteira, usa-se só o embedding de saída dessa posição.</p>
+    <div class="content">
+      <div class="tok-row" id="clsSentence" style="justify-content:center;"></div>
+      <div class="card" style="max-width:760px; margin:26px auto 0;">
+        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0;">Exemplo — análise de sentimento: o vetor de <b style="color:var(--peri)">&lt;cls&gt;</b> é mapeado para um único número e passado por uma sigmoid, contribuindo para uma perda de entropia cruzada binária (positivo / negativo).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11: FINE-TUNE - WORD CLASSIFICATION (NER) -->
+  <section class="slide">
+    <div class="eyebrow">12.6.2 · Fine-tuning</div>
+    <h1 class="slide-title">Classificação por palavra: NER</h1>
+    <p class="slide-sub">No reconhecimento de entidades nomeadas, cada embedding $\mathbf{x}_n$ (não só o &lt;cls&gt;) é mapeado para um vetor $E\times 1$, um valor por tipo de entidade possível.</p>
+    <div class="content">
+      <div class="card formula-card">
+        <div>$$\mathbf{x}_n \ \longrightarrow\ \text{softmax}\big[\ \text{pessoa, local, organização, nenhuma}\ \big]$$</div>
+        <div class="cap">Cada uma das $N$ posições gera sua própria distribuição de probabilidade e seu próprio termo de perda — diferente da classificação de sequência, que usa só uma posição.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12: FINE-TUNE - SPAN PREDICTION -->
+  <section class="slide">
+    <div class="eyebrow">12.6.2 · Fine-tuning</div>
+    <h1 class="slide-title">Predição de trecho: SQuAD</h1>
+    <p class="slide-sub">Questão e passagem são concatenadas e tokenizadas juntas. BERT prevê o trecho da passagem que contém a resposta.</p>
+    <div class="content">
+      <div class="two-col">
+        <div class="card"><div class="tag">Início do trecho</div><p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:10px 0 0 0;">Cada token gera um número indicando a chance de a resposta <b style="color:var(--ink)">começar</b> ali → softmax sobre as $N$ posições.</p></div>
+        <div class="card"><div class="tag">Fim do trecho</div><p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:10px 0 0 0;">Um segundo conjunto de números / softmax indica onde a resposta <b style="color:var(--ink)">termina</b>.</p></div>
+      </div>
+      <div class="card" style="max-width:760px; margin:20px auto 0;">
+        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0; text-align:center;">A probabilidade de qualquer trecho ser a resposta combina as duas probabilidades (início × fim).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13: CLOSING -->
+  <section class="slide">
+    <div class="eyebrow">Fechamento</div>
+    <h1 class="slide-title">Encoder: representação, não geração</h1>
+    <div class="content">
+      <div class="card" style="max-width:860px; margin-bottom:16px;">
+        <p style="color:var(--ink-dim); font-size:18px; line-height:1.75; margin:0;">Um encoder como o BERT constrói uma <b style="color:var(--ink)">representação bidirecional</b> do texto, pré-treinada por auto-supervisão (prever palavras escondidas) e depois especializada por fine-tuning para tarefas específicas — classificação, NER, QA.</p>
+      </div>
+      <div class="card" style="max-width:860px; border-color: var(--peri);">
+        <p style="color:var(--ink-dim); font-size:16px; line-height:1.7; margin:0;">Na <b style="color:var(--ink)">Aula 4</b>: o <b style="color:var(--peri)">decoder</b> (GPT3) — que não constrói uma representação para reaproveitar, mas gera texto token a token — e o <b style="color:var(--peri)">encoder-decoder</b>, que combina os dois para tarefas como tradução.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="credit">GRUPO DE ESTUDOS · TRANSFORMERS — AULA 3 · UDL CAP. 12 (PRINCE)</div>
+    <div class="attn-row" id="attnRow"></div>
+    <div class="navbtns">
+      <button class="navbtn" id="prevBtn">← anterior</button>
+      <button class="navbtn" id="nextBtn">próximo →</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+  // ----- render all math on the page -----
+  document.addEventListener('DOMContentLoaded', function() {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false }
+        ],
+        throwOnError: false
+      });
+    }
+  });
+
+  // ----- slide navigation -----
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  const attnRow = document.getElementById('attnRow');
+  for (let i = 0; i < total; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'attn-cell';
+    cell.addEventListener('click', () => goTo(i));
+    attnRow.appendChild(cell);
+  }
+  const cells = attnRow.querySelectorAll('.attn-cell');
+
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle('active', i === current));
+    cells.forEach((c, i) => {
+      c.classList.toggle('now', i === current);
+      c.classList.toggle('past', i < current);
+    });
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').disabled = current === total - 1;
+  }
+  function goTo(i) { current = Math.max(0, Math.min(total - 1, i)); render(); }
+
+  document.getElementById('prevBtn').addEventListener('click', () => goTo(current - 1));
+  document.getElementById('nextBtn').addEventListener('click', () => goTo(current + 1));
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') goTo(current + 1);
+    if (e.key === 'ArrowLeft') goTo(current - 1);
+  });
+
+  const gridHero = document.getElementById('gridHero');
+  for (let i = 0; i < 36; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.animationDelay = (Math.random() * 3.6).toFixed(2) + 's';
+    gridHero.appendChild(cell);
+  }
+
+  render();
+
+  // ----- encoder-specific visuals -----
+  (function () {
+    function buildInteractionMatrix(containerId, n, allowFn) {
+      const wrap = document.getElementById(containerId);
+      if (!wrap) return;
+      const cellSize = 40;
+      const block = document.createElement('div');
+      block.className = 'imatrix-block';
+      const row = document.createElement('div');
+      row.className = 'imatrix-row-wrap';
+
+      const axisY = document.createElement('div');
+      axisY.className = 'imatrix-axis-y';
+      for (let m = 0; m < n; m++) {
+        const s = document.createElement('span');
+        s.textContent = 'm=' + m;
+        axisY.appendChild(s);
+      }
+      row.appendChild(axisY);
+
+      const grid = document.createElement('div');
+      grid.className = 'imatrix';
+      grid.style.gridTemplateColumns = 'repeat(' + n + ', ' + cellSize + 'px)';
+      for (let m = 0; m < n; m++) {
+        for (let k = 0; k < n; k++) {
+          const cell = document.createElement('div');
+          cell.className = 'imatrix-cell ' + (allowFn(m, k) ? 'on' : 'off');
+          grid.appendChild(cell);
+        }
+      }
+      row.appendChild(grid);
+      block.appendChild(row);
+
+      const axisX = document.createElement('div');
+      axisX.className = 'imatrix-axis-x';
+      axisX.style.gridTemplateColumns = 'repeat(' + n + ', ' + cellSize + 'px)';
+      for (let k = 0; k < n; k++) {
+        const s = document.createElement('span');
+        s.textContent = 'n=' + k;
+        axisX.appendChild(s);
+      }
+      block.appendChild(axisX);
+
+      wrap.appendChild(block);
+    }
+
+    buildInteractionMatrix('imatrixEncoder', 7, function () { return true; });
+
+    // masked sentence
+    const maskedWrap = document.getElementById('maskedSentence');
+    if (maskedWrap) {
+      const words = [
+        { w: '<cls>', cls: 'cls' },
+        { w: 'O' }, { w: 'trem' }, { w: 'entrou' }, { w: 'na' }, { w: '<mask>', cls: 'masked' }, { w: '.' }
+      ];
+      words.forEach(function (item) {
+        const chip = document.createElement('div');
+        chip.className = 'tok-chip';
+        chip.style.margin = '0 4px';
+        const cls = item.cls ? (' ' + item.cls) : '';
+        chip.innerHTML = '<span class="tok-word' + cls + '">' + item.w + '</span>';
+        maskedWrap.appendChild(chip);
+      });
+    }
+
+    // cls sentence
+    const clsWrap = document.getElementById('clsSentence');
+    if (clsWrap) {
+      const words = [
+        { w: '<cls>', cls: 'cls' },
+        { w: 'Ótimo' }, { w: 'filme' }, { w: '.' }
+      ];
+      words.forEach(function (item) {
+        const chip = document.createElement('div');
+        chip.className = 'tok-chip';
+        chip.style.margin = '0 4px';
+        const cls = item.cls ? (' ' + item.cls) : '';
+        chip.innerHTML = '<span class="tok-word' + cls + '">' + item.w + '</span>';
+        clsWrap.appendChild(chip);
+      });
+    }
+  })();
+</script>
+</body>
+</html>
